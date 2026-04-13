@@ -2,7 +2,7 @@
   "display_name": "ST Universal Translator",
   "name": "ST-traslate-data",
   "loading_order": 100,
-  "js": "script.js",
+  "js": "dist/script.js",
   "hooks": {
     "activate": "onActivate"
   },

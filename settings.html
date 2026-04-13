@@ -63,7 +63,15 @@
 
   .translator-panel .button-row {
     display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 0.7rem;
+  }
+
+  .translator-panel .character-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.7rem;
+    align-items: end;
   }
 
   .translator-panel .progress {
@@ -186,12 +194,14 @@
         <button id="translateLorebookButton" type="button" class="menu_button">Traducir lorebook actual</button>
       </div>
 
-      <div class="section-group">
+      <div class="section-group character-row">
         <div>
           <label for="characterBatchSelect">Seleccionar personajes agregados</label>
           <select id="characterBatchSelect" multiple size="6" class="text_pole"></select>
-          <button id="refreshCharacterListButton" type="button" class="menu_button">Refrescar lista</button>
         </div>
+        <button id="refreshCharacterListButton" type="button" class="menu_button">Refrescar lista</button>
+      </div>
+      <div class="button-row">
         <button id="translateSelectedCharactersButton" type="button" class="menu_button">Traducir personajes seleccionados</button>
       </div>
 

@@ -6,6 +6,18 @@ import {
   parseGenericCompletionResponse,
 } from './utils.js';
 
+export const DEFAULT_ENDPOINTS = {
+  openai: 'https://api.openai.com/v1/chat/completions',
+  local_koboldcpp: 'http://127.0.0.1:5000/api/v1/generate',
+  llama_cpp: 'http://127.0.0.1:8080/v1/completions',
+  ollama: 'http://127.0.0.1:11434/api/completions',
+  llm_studio: 'http://127.0.0.1:8080/api/v1/generate',
+  openrouter: 'https://openrouter.ai/v1/chat/completions',
+  electron_hub: 'http://127.0.0.1:3000/generate',
+  google_aistudio: 'https://generativelanguage.googleapis.com/v1beta2/models/text-bison-001:generateText',
+  google_translate: 'https://translation.googleapis.com/language/translate/v2',
+};
+
 export const DEFAULT_TRANSLATION_PROVIDER = 'openai';
 export const SUPPORTED_TRANSLATION_PROVIDERS = [
   'openai',
@@ -49,7 +61,7 @@ export async function translateText(text, sourceLang, targetLang, providerConfig
 
 async function translateWithOpenAI(text, sourceLang, targetLang, providerConfig) {
   const apiKey = providerConfig.apiKey;
-  const apiUrl = providerConfig.apiUrl || 'https://api.openai.com/v1/chat/completions';
+  const apiUrl = providerConfig.apiUrl || DEFAULT_ENDPOINTS.openai;
   const model = providerConfig.model || 'gpt-3.5-turbo';
   const prompt = buildTranslatePrompt(text, sourceLang, targetLang);
   const body = {
@@ -77,7 +89,7 @@ async function translateWithOpenAI(text, sourceLang, targetLang, providerConfig)
 }
 
 async function translateWithKoboldCPP(text, sourceLang, targetLang, providerConfig) {
-  const apiUrl = providerConfig.apiUrl || 'http://127.0.0.1:5000/api/v1/generate';
+  const apiUrl = providerConfig.apiUrl || DEFAULT_ENDPOINTS.local_koboldcpp;
   const prompt = buildTranslatePrompt(text, sourceLang, targetLang);
   const body = {
     prompt,
@@ -107,7 +119,7 @@ async function translateWithKoboldCPP(text, sourceLang, targetLang, providerConf
 }
 
 async function translateWithLlamaCpp(text, sourceLang, targetLang, providerConfig) {
-  const apiUrl = providerConfig.apiUrl || 'http://127.0.0.1:8080/v1/completions';
+  const apiUrl = providerConfig.apiUrl || DEFAULT_ENDPOINTS.llama_cpp;
   const prompt = buildTranslatePrompt(text, sourceLang, targetLang);
   const body = {
     model: providerConfig.model || 'llama',
@@ -125,7 +137,7 @@ async function translateWithLlamaCpp(text, sourceLang, targetLang, providerConfi
 }
 
 async function translateWithOllama(text, sourceLang, targetLang, providerConfig) {
-  const apiUrl = providerConfig.apiUrl || 'http://127.0.0.1:11434/api/completions';
+  const apiUrl = providerConfig.apiUrl || DEFAULT_ENDPOINTS.ollama;
   const prompt = buildTranslatePrompt(text, sourceLang, targetLang);
   const body = {
     model: providerConfig.model || 'llama2',
@@ -148,7 +160,7 @@ async function translateWithOllama(text, sourceLang, targetLang, providerConfig)
 }
 
 async function translateWithLLMStudio(text, sourceLang, targetLang, providerConfig) {
-  const apiUrl = providerConfig.apiUrl || 'http://127.0.0.1:8080/api/v1/generate';
+  const apiUrl = providerConfig.apiUrl || DEFAULT_ENDPOINTS.llm_studio;
   const prompt = buildTranslatePrompt(text, sourceLang, targetLang);
   const body = {
     model: providerConfig.model || 'text-davinci-003',
@@ -166,7 +178,7 @@ async function translateWithLLMStudio(text, sourceLang, targetLang, providerConf
 }
 
 async function translateWithOpenRouter(text, sourceLang, targetLang, providerConfig) {
-  const apiUrl = providerConfig.apiUrl || 'https://openrouter.ai/v1/chat/completions';
+  const apiUrl = providerConfig.apiUrl || DEFAULT_ENDPOINTS.openrouter;
   const prompt = buildTranslatePrompt(text, sourceLang, targetLang);
   const body = {
     model: providerConfig.model || 'gpt-4',
@@ -187,7 +199,7 @@ async function translateWithOpenRouter(text, sourceLang, targetLang, providerCon
 }
 
 async function translateWithElectronHub(text, sourceLang, targetLang, providerConfig) {
-  const apiUrl = providerConfig.apiUrl || 'http://127.0.0.1:3000/generate';
+  const apiUrl = providerConfig.apiUrl || DEFAULT_ENDPOINTS.electron_hub;
   const prompt = buildTranslatePrompt(text, sourceLang, targetLang);
   const body = {
     prompt,
@@ -208,7 +220,7 @@ async function translateWithElectronHub(text, sourceLang, targetLang, providerCo
 async function translateWithGoogleAIStudio(text, sourceLang, targetLang, providerConfig) {
   const model = providerConfig.model || 'models/text-bison-001';
   const apiKey = providerConfig.apiKey;
-  const baseUrl = providerConfig.apiUrl || `https://generativelanguage.googleapis.com/v1beta2/${model}:generateText`;
+  const baseUrl = providerConfig.apiUrl || DEFAULT_ENDPOINTS.google_aistudio;
   const apiUrl = apiKey && !baseUrl.includes('?') ? `${baseUrl}?key=${encodeURIComponent(apiKey)}` : baseUrl;
   const prompt = buildTranslatePrompt(text, sourceLang, targetLang);
   const body = {
@@ -227,7 +239,7 @@ async function translateWithGoogleAIStudio(text, sourceLang, targetLang, provide
 
 async function translateWithGoogleTranslate(text, sourceLang, targetLang, providerConfig) {
   const apiKey = providerConfig.apiKey;
-  const apiUrl = providerConfig.apiUrl || `https://translation.googleapis.com/language/translate/v2${apiKey ? `?key=${encodeURIComponent(apiKey)}` : ''}`;
+  const apiUrl = providerConfig.apiUrl || DEFAULT_ENDPOINTS.google_translate;
 
   if (!apiKey && !providerConfig.apiUrl) {
     throw new Error('Google Translate requiere apiKey o apiUrl personalizada');

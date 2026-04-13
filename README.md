@@ -21,14 +21,17 @@ Extensión para SillyTavern que traduce contenido de lorebooks y tarjetas de per
 
 ## Archivos principales
 
-- `script.js`: lógica principal de la extensión, parsing PNG, preservación de variables y rutas de traducción.
+- `src/`: código modular de la extensión.
+- `src/loader.js`: punto de entrada usado para el bundle.
+- `dist/script.js`: archivo empaquetado final que carga en SillyTavern.
 - `settings.html`: panel de configuración con selectores de idioma, proveedor, API URL, API key y barra de progreso.
 
 ## Uso
 
 1. Instala la extensión colocando esta carpeta en `data/<user-handle>/extensions` o en `scripts/extensions/third-party` de SillyTavern.
-2. Asegúrate de que `manifest.json` y `script.js` estén presentes en el mismo directorio.
-3. Abre `settings.html` dentro de SillyTavern o en el contexto de la extensión.
+2. Genera el bundle con `npm install` y `npm run build`.
+3. Asegúrate de que `manifest.json` y `dist/script.js` estén presentes en el mismo directorio.
+4. Abre `settings.html` dentro de SillyTavern o en el contexto de la extensión.
 
 Repositorio del proyecto: https://github.com/jalp17/ST-traslate-data
 4. Selecciona el idioma origen y destino.

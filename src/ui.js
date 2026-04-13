@@ -1,3 +1,5 @@
+import { DEFAULT_ENDPOINTS } from './translateProviders.js';
+
 export async function initializeExtensionPanel() {
   const tryRenderSettings = async () => {
     const ST = globalThis.SillyTavern;
@@ -20,10 +22,22 @@ export async function initializeExtensionPanel() {
       if (!settingsHtml) {
         const currentScript = document.currentScript || document.querySelector('script[src*="script.js"]');
         const baseUrl = currentScript?.src ? currentScript.src.replace(/\/[^/]*$/, '/') : null;
+        const candidates = [];
+
         if (baseUrl) {
-          const settingsResponse = await fetch(new URL('settings.html', baseUrl).href);
-          if (settingsResponse.ok) {
-            settingsHtml = await settingsResponse.text();
+          candidates.push(new URL('settings.html', baseUrl).href);
+          candidates.push(new URL('../settings.html', baseUrl).href);
+        }
+
+        for (const url of candidates) {
+          try {
+            const settingsResponse = await fetch(url);
+            if (settingsResponse.ok) {
+              settingsHtml = await settingsResponse.text();
+              break;
+            }
+          } catch {
+            // ignore failed candidate
           }
         }
       }
@@ -113,6 +127,20 @@ export function attachTranslatorSettingsEvents() {
       statusText.textContent = message;
     }
   }
+
+  function updateApiSettingsForProvider(provider) {
+    const defaultUrl = DEFAULT_ENDPOINTS[provider] || '';
+    apiUrlInput.placeholder = defaultUrl;
+    if (!apiUrlInput.value.trim()) {
+      apiUrlInput.value = defaultUrl;
+    }
+  }
+
+  providerSelect.addEventListener('change', () => {
+    updateApiSettingsForProvider(providerSelect.value);
+  });
+
+  updateApiSettingsForProvider(providerSelect.value);
 
   let translatorSelectedFile = null;
   pngInput.addEventListener('change', (event) => {

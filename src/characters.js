@@ -94,6 +94,16 @@ export async function translateCharacters(characters, sourceLang = 'auto', targe
   return translateCharacterData(characters, sourceLang, targetLang, providerConfig);
 }
 
+function isCharacterLike(item) {
+  if (!item || typeof item !== 'object') {
+    return false;
+  }
+
+  const hasName = Boolean(item.name || item.title || item.characterName || item.id || item.uuid);
+  const hasCharacterField = Object.keys(item).some((key) => /name|description|personality|scenario|bio|note|comment|profile/i.test(key));
+  return hasName && hasCharacterField;
+}
+
 export function normalizeCharacterSource(source) {
   if (!source) {
     return [];
@@ -102,9 +112,42 @@ export function normalizeCharacterSource(source) {
     return source;
   }
   if (typeof source === 'object') {
+    if (Array.isArray(source.items)) {
+      return source.items;
+    }
+    if (Array.isArray(source.results)) {
+      return source.results;
+    }
+    if (Array.isArray(source.data)) {
+      return source.data;
+    }
     return Object.values(source);
   }
   return [];
+}
+
+function scanWindowForCharacters() {
+  const candidates = [];
+  const keys = Object.keys(window).filter((key) => /character|persona|actor|npc/i.test(key));
+  for (const key of keys) {
+    candidates.push(...normalizeCharacterSource(window[key]));
+  }
+
+  if (window.SillyTavern && typeof window.SillyTavern === 'object') {
+    const stKeys = Object.keys(window.SillyTavern).filter((key) => /character|persona|actor|npc|context/i.test(key));
+    for (const key of stKeys) {
+      candidates.push(...normalizeCharacterSource(window.SillyTavern[key]));
+    }
+  }
+
+  if (window.ST && typeof window.ST === 'object') {
+    const stKeys = Object.keys(window.ST).filter((key) => /character|persona|actor|npc|context/i.test(key));
+    for (const key of stKeys) {
+      candidates.push(...normalizeCharacterSource(window.ST[key]));
+    }
+  }
+
+  return candidates;
 }
 
 export function getAvailableCharacters() {
@@ -112,24 +155,41 @@ export function getAvailableCharacters() {
     window.getCurrentCharacters?.(),
     window.getCurrentCharacter?.(),
     window.getCharacters?.(),
+    window.SillyTavern?.getContext?.()?.characters,
+    window.SillyTavern?.characters,
+    window.SillyTavern?.currentCharacters,
+    window.ST?.characters,
+    window.ST?.currentCharacters,
     window.characters,
     window.currentCharacters,
     window.characterList,
     window.allCharacters,
   ];
 
+  const allItems = [];
   for (const source of sources) {
-    const items = normalizeCharacterSource(source);
-    if (items.length) {
-      return items.map((item, index) => ({
-        id: item?.id ?? item?.uuid ?? `char-${index}`,
-        name: item?.name ?? item?.characterName ?? item?.title ?? `Personaje ${index + 1}`,
-        data: item,
-      }));
-    }
+    allItems.push(...normalizeCharacterSource(source));
   }
 
-  return [];
+  if (!allItems.length) {
+    allItems.push(...scanWindowForCharacters());
+  }
+
+  const visibleItems = allItems.filter(isCharacterLike);
+  const uniqueById = new Map();
+
+  visibleItems.forEach((item, index) => {
+    const id = item?.id ?? item?.uuid ?? `${item?.name ?? 'char'}-${index}`;
+    if (!uniqueById.has(id)) {
+      uniqueById.set(id, item);
+    }
+  });
+
+  return Array.from(uniqueById.values()).map((item, index) => ({
+    id: item?.id ?? item?.uuid ?? `char-${index}`,
+    name: item?.name ?? item?.characterName ?? item?.title ?? `Personaje ${index + 1}`,
+    data: item,
+  }));
 }
 
 export async function translateLorebook(lorebook, sourceLang = 'auto', targetLang = 'es', batchDelay = 500, providerConfig = { provider: 'openai' }) {
