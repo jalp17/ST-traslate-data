@@ -247,50 +247,301 @@ async function translateText(text, sourceLang, targetLang, providerConfig = { pr
   }
 }
 
+function buildTranslatePrompt(text, sourceLang, targetLang) {
+  const fromLabel = sourceLang === 'auto' ? 'el idioma original' : `de ${sourceLang}`;
+  return `Traduce el siguiente texto ${fromLabel} a ${targetLang}. Conserva exactamente todas las variables y tokens internos como __VAR_0__, __VAR_1__, {{char}}, {{user}}, {{worldinfo}}, {{roleplay}} y similares sin alterarlos. Solo devuelve el texto traducido y no agregues explicaciones.
+
+Texto:
+${text}`;
+}
+
+function buildJsonHeaders(apiKey, extra = {}) {
+  const headers = { 'Content-Type': 'application/json', ...extra };
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+  return headers;
+}
+
+async function fetchJson(url, init) {
+  const response = await fetch(url, init);
+  const contentType = response.headers.get('content-type') || '';
+  const bodyText = await response.text();
+
+  if (!response.ok) {
+    let message = bodyText;
+    try {
+      const bodyJson = JSON.parse(bodyText);
+      message = bodyJson.error?.message || JSON.stringify(bodyJson);
+    } catch (e) {
+      // Body is plain text.
+    }
+    throw new Error(`Error en la llamada a ${url}: ${response.status} ${response.statusText} - ${message}`);
+  }
+
+  if (contentType.includes('application/json')) {
+    return JSON.parse(bodyText);
+  }
+
+  return bodyText;
+}
+
+function parseOpenAIResponse(result) {
+  if (!result?.choices?.length) {
+    throw new Error('Respuesta de OpenAI inválida');
+  }
+  const choice = result.choices[0];
+  if (choice.message?.content) {
+    return choice.message.content.trim();
+  }
+  if (typeof choice.text === 'string') {
+    return choice.text.trim();
+  }
+  throw new Error('No se pudo leer la respuesta de OpenAI');
+}
+
+function parseGenericCompletionResponse(result) {
+  if (result?.output) {
+    if (Array.isArray(result.output)) {
+      return result.output.map((item) => (typeof item === 'string' ? item : item.text)).join('');
+    }
+    if (typeof result.output === 'string') {
+      return result.output.trim();
+    }
+  }
+
+  if (result?.choices?.length) {
+    const choice = result.choices[0];
+    if (choice.message?.content) {
+      return choice.message.content.trim();
+    }
+    if (typeof choice.text === 'string') {
+      return choice.text.trim();
+    }
+  }
+
+  if (result?.completion) {
+    return result.completion.trim();
+  }
+
+  if (result?.results?.length && result.results[0]?.content?.length) {
+    return result.results[0].content.map((item) => item.text || '').join('').trim();
+  }
+
+  if (result?.candidates?.length && typeof result.candidates[0].output === 'string') {
+    return result.candidates[0].output.trim();
+  }
+
+  throw new Error('No se pudo analizar la respuesta del modelo');
+}
+
 async function translateWithOpenAI(text, sourceLang, targetLang, providerConfig) {
-  // TODO: implementar la llamada a OpenAI completions/chat.
-  // providerConfig.apiKey, providerConfig.model, providerConfig.apiUrl
-  return text;
+  const apiKey = providerConfig.apiKey;
+  const apiUrl = providerConfig.apiUrl || 'https://api.openai.com/v1/chat/completions';
+  const model = providerConfig.model || 'gpt-3.5-turbo';
+  const prompt = buildTranslatePrompt(text, sourceLang, targetLang);
+  const body = {
+    model,
+    messages: [
+      {
+        role: 'system',
+        content: 'Eres un traductor preciso. Conserva literales y placeholders sin cambiarlos.',
+      },
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ],
+    temperature: providerConfig.temperature ?? 0.2,
+    max_tokens: providerConfig.maxTokens || 1200,
+  };
+
+  const result = await fetchJson(apiUrl, {
+    method: 'POST',
+    headers: buildJsonHeaders(apiKey),
+    body: JSON.stringify(body),
+  });
+  return parseOpenAIResponse(result);
 }
 
 async function translateWithKoboldCPP(text, sourceLang, targetLang, providerConfig) {
-  // TODO: implementar la llamada a KoboldCPP local.
-  return text;
+  const apiUrl = providerConfig.apiUrl || 'http://127.0.0.1:5000/api/v1/generate';
+  const prompt = buildTranslatePrompt(text, sourceLang, targetLang);
+  const body = {
+    prompt,
+    max_length: providerConfig.maxTokens || 1024,
+    temperature: providerConfig.temperature ?? 0.2,
+    top_p: providerConfig.top_p ?? 0.9,
+    repetition_penalty: providerConfig.repetition_penalty ?? 1.1,
+  };
+
+  const result = await fetchJson(apiUrl, {
+    method: 'POST',
+    headers: buildJsonHeaders(providerConfig.apiKey),
+    body: JSON.stringify(body),
+  });
+
+  if (typeof result.output === 'string') {
+    return result.output.trim();
+  }
+  if (Array.isArray(result.output)) {
+    return result.output.join('').trim();
+  }
+  if (result?.results?.length) {
+    return result.results.join('').trim();
+  }
+  return parseGenericCompletionResponse(result);
 }
 
 async function translateWithLlamaCpp(text, sourceLang, targetLang, providerConfig) {
-  // TODO: implementar la llamada a llama.cpp.
-  return text;
+  const apiUrl = providerConfig.apiUrl || 'http://127.0.0.1:8080/v1/completions';
+  const prompt = buildTranslatePrompt(text, sourceLang, targetLang);
+  const body = {
+    model: providerConfig.model || 'llama',
+    prompt,
+    max_tokens: providerConfig.maxTokens || 1024,
+    temperature: providerConfig.temperature ?? 0.2,
+  };
+
+  const result = await fetchJson(apiUrl, {
+    method: 'POST',
+    headers: buildJsonHeaders(providerConfig.apiKey),
+    body: JSON.stringify(body),
+  });
+  return parseGenericCompletionResponse(result);
 }
 
 async function translateWithOllama(text, sourceLang, targetLang, providerConfig) {
-  // TODO: implementar la llamada a Ollama.
-  return text;
+  const apiUrl = providerConfig.apiUrl || 'http://127.0.0.1:11434/api/completions';
+  const prompt = buildTranslatePrompt(text, sourceLang, targetLang);
+  const body = {
+    model: providerConfig.model || 'llama2',
+    prompt,
+    max_tokens: providerConfig.maxTokens || 1024,
+    temperature: providerConfig.temperature ?? 0.2,
+    stream: false,
+  };
+
+  const result = await fetchJson(apiUrl, {
+    method: 'POST',
+    headers: buildJsonHeaders(providerConfig.apiKey),
+    body: JSON.stringify(body),
+  });
+
+  if (result?.completion) {
+    return result.completion.trim();
+  }
+  return parseGenericCompletionResponse(result);
 }
 
 async function translateWithLLMStudio(text, sourceLang, targetLang, providerConfig) {
-  // TODO: implementar la llamada a LLM Studio.
-  return text;
+  const apiUrl = providerConfig.apiUrl || 'http://127.0.0.1:8080/api/v1/generate';
+  const prompt = buildTranslatePrompt(text, sourceLang, targetLang);
+  const body = {
+    model: providerConfig.model || 'text-davinci-003',
+    prompt,
+    max_tokens: providerConfig.maxTokens || 1024,
+    temperature: providerConfig.temperature ?? 0.2,
+  };
+
+  const result = await fetchJson(apiUrl, {
+    method: 'POST',
+    headers: buildJsonHeaders(providerConfig.apiKey),
+    body: JSON.stringify(body),
+  });
+  return parseGenericCompletionResponse(result);
 }
 
 async function translateWithOpenRouter(text, sourceLang, targetLang, providerConfig) {
-  // TODO: implementar la llamada a OpenRouter.
-  return text;
+  const apiUrl = providerConfig.apiUrl || 'https://openrouter.ai/v1/chat/completions';
+  const prompt = buildTranslatePrompt(text, sourceLang, targetLang);
+  const body = {
+    model: providerConfig.model || 'gpt-4',
+    messages: [
+      { role: 'system', content: 'Eres un traductor preciso.' },
+      { role: 'user', content: prompt },
+    ],
+    temperature: providerConfig.temperature ?? 0.2,
+    max_tokens: providerConfig.maxTokens || 1200,
+  };
+
+  const result = await fetchJson(apiUrl, {
+    method: 'POST',
+    headers: buildJsonHeaders(providerConfig.apiKey),
+    body: JSON.stringify(body),
+  });
+  return parseOpenAIResponse(result);
 }
 
 async function translateWithElectronHub(text, sourceLang, targetLang, providerConfig) {
-  // TODO: implementar la llamada a Electron Hub.
-  return text;
+  const apiUrl = providerConfig.apiUrl || 'http://127.0.0.1:3000/generate';
+  const prompt = buildTranslatePrompt(text, sourceLang, targetLang);
+  const body = {
+    prompt,
+    model: providerConfig.model || 'default',
+    max_tokens: providerConfig.maxTokens || 1024,
+    temperature: providerConfig.temperature ?? 0.2,
+  };
+
+  const result = await fetchJson(apiUrl, {
+    method: 'POST',
+    headers: buildJsonHeaders(providerConfig.apiKey),
+    body: JSON.stringify(body),
+  });
+
+  return parseGenericCompletionResponse(result);
 }
 
 async function translateWithGoogleAIStudio(text, sourceLang, targetLang, providerConfig) {
-  // TODO: implementar la llamada a Google AI Studio.
-  return text;
+  const model = providerConfig.model || 'models/text-bison-001';
+  const apiKey = providerConfig.apiKey;
+  const baseUrl = providerConfig.apiUrl || `https://generativelanguage.googleapis.com/v1beta2/${model}:generateText`;
+  const apiUrl = apiKey && !baseUrl.includes('?') ? `${baseUrl}?key=${encodeURIComponent(apiKey)}` : baseUrl;
+  const prompt = buildTranslatePrompt(text, sourceLang, targetLang);
+
+  const body = {
+    prompt: { text: prompt },
+    temperature: providerConfig.temperature ?? 0.2,
+    max_output_tokens: providerConfig.maxTokens || 1024,
+  };
+
+  const result = await fetchJson(apiUrl, {
+    method: 'POST',
+    headers: buildJsonHeaders(),
+    body: JSON.stringify(body),
+  });
+  return parseGenericCompletionResponse(result);
 }
 
 async function translateWithGoogleTranslate(text, sourceLang, targetLang, providerConfig) {
-  // TODO: implementar una llamada básica a Google Translate o un wrapper de traducción básica.
-  return text;
+  const apiKey = providerConfig.apiKey;
+  const apiUrl = providerConfig.apiUrl || `https://translation.googleapis.com/language/translate/v2${apiKey ? `?key=${encodeURIComponent(apiKey)}` : ''}`;
+
+  if (!apiKey && !providerConfig.apiUrl) {
+    throw new Error('Google Translate requiere apiKey o apiUrl personalizada');
+  }
+
+  const body = {
+    q: text,
+    target: targetLang,
+    format: 'text',
+  };
+
+  if (sourceLang !== 'auto') {
+    body.source = sourceLang;
+  }
+
+  const result = await fetchJson(apiUrl, {
+    method: 'POST',
+    headers: buildJsonHeaders(),
+    body: JSON.stringify(body),
+  });
+
+  if (!result?.data?.translations?.length || !result.data.translations[0].translatedText) {
+    throw new Error('Respuesta inválida de Google Translate');
+  }
+
+  return result.data.translations[0].translatedText.trim();
 }
 
 async function translateLorebook(lorebook, sourceLang = 'auto', targetLang = 'es', batchDelay = DEFAULT_BATCH_DELAY, providerConfig = { provider: DEFAULT_TRANSLATION_PROVIDER }) {
