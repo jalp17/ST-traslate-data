@@ -6,7 +6,7 @@ Extensión para SillyTavern que traduce contenido de lorebooks y tarjetas de per
 
 - Traducción de lorebooks JSON (`world_info.entries`) con preservación de placeholders.
 - Traducción de tarjetas de personaje PNG que almacenan metadatos en el chunk `chara`.
-- Traducción de personajes ya agregados en SillyTavern (desde datos de personaje cargados en memoria).
+- Traducción de lotes de imágenes PNG y personajes ya agregados en SillyTavern.
 - Soporta múltiples proveedores de traducción:
   - OpenAI
   - KoboldCPP (local)
@@ -29,8 +29,10 @@ Extensión para SillyTavern que traduce contenido de lorebooks y tarjetas de per
 1. Abre `settings.html` dentro de SillyTavern o en el contexto de la extensión.
 2. Selecciona el idioma origen y destino.
 3. Elige el proveedor de traducción y configura `API URL` / `API key` según el proveedor.
-4. Sube un PNG de tarjeta de personaje y pulsa `Traducir tarjeta PNG`.
-5. Para lorebooks, pulsa `Procesar lorebook actual`.
+4. Para un solo PNG, sube el archivo y pulsa `Traducir tarjeta PNG`.
+5. Para un lote de imágenes, selecciona múltiples PNG y especifica la carpeta de salida.
+6. Para traducir personajes, selecciona uno o varios personajes en la lista y pulsa `Traducir personajes seleccionados`.
+7. Para lorebooks ya cargados en SillyTavern, pulsa `Traducir lorebook actual`.
 
 ## Configuración de proveedores
 

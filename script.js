@@ -341,6 +341,95 @@ async function translateCharacters(characters, sourceLang = 'auto', targetLang =
   return translateCharacterData(characters, sourceLang, targetLang, providerConfig);
 }
 
+function getFileName(file) {
+  if (!file) {
+    return `translated-${Date.now()}.png`;
+  }
+  return file.name || `translated-${Date.now()}.png`;
+}
+
+async function saveBlobToDisk(blob, filename, folderPath) {
+  const normalizedFolder = folderPath?.toString().trim();
+  const normalizedFilename = filename.replace(/[/\\]/g, '_');
+
+  if (normalizedFolder && typeof window.saveBlobToPath === 'function') {
+    const filePath = `${normalizedFolder.replace(/[/\\]$/, '')}/${normalizedFilename}`;
+    await window.saveBlobToPath(blob, filePath);
+    return { saved: true, path: filePath };
+  }
+
+  if (normalizedFolder && typeof window.saveBlob === 'function') {
+    await window.saveBlob(blob, normalizedFilename, normalizedFolder);
+    return { saved: true, path: `${normalizedFolder.replace(/[/\\]$/, '')}/${normalizedFilename}` };
+  }
+
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = normalizedFilename;
+  link.click();
+  URL.revokeObjectURL(url);
+  return { saved: false, path: normalizedFilename };
+}
+
+function normalizeCharacterSource(source) {
+  if (!source) {
+    return [];
+  }
+
+  if (Array.isArray(source)) {
+    return source;
+  }
+
+  if (typeof source === 'object') {
+    return Object.values(source);
+  }
+
+  return [];
+}
+
+function getAvailableCharacters() {
+  const sources = [
+    window.getCurrentCharacters?.(),
+    window.getCurrentCharacter?.(),
+    window.getCharacters?.(),
+    window.characters,
+    window.currentCharacters,
+    window.characterList,
+    window.allCharacters,
+  ];
+
+  for (const source of sources) {
+    const items = normalizeCharacterSource(source);
+    if (items.length) {
+      return items.map((item, index) => ({
+        id: item?.id ?? item?.uuid ?? `char-${index}`,
+        name: item?.name ?? item?.characterName ?? item?.title ?? `Personaje ${index + 1}`,
+        data: item,
+      }));
+    }
+  }
+
+  return [];
+}
+
+async function translateImageBatch(files, sourceLang = 'auto', targetLang = 'es', outputFolder = '', providerConfig = { provider: DEFAULT_TRANSLATION_PROVIDER }, batchDelay = DEFAULT_BATCH_DELAY) {
+  if (!files || !files.length) {
+    return [];
+  }
+
+  const results = [];
+  for (const file of files) {
+    const translatedBlob = await translateCharacterCard(file, sourceLang, targetLang, providerConfig);
+    const filename = getFileName(file);
+    const saveInfo = await saveBlobToDisk(translatedBlob, filename, outputFolder);
+    results.push({ file: filename, saved: saveInfo.saved, path: saveInfo.path });
+    await sleep(batchDelay);
+  }
+
+  return results;
+}
+
 function buildTranslatePrompt(text, sourceLang, targetLang) {
   const fromLabel = sourceLang === 'auto' ? 'el idioma original' : `de ${sourceLang}`;
   return `Traduce el siguiente texto ${fromLabel} a ${targetLang}. Conserva exactamente todas las variables y tokens internos como __VAR_0__, __VAR_1__, {{char}}, {{user}}, {{worldinfo}}, {{roleplay}} y similares sin alterarlos. Solo devuelve el texto traducido y no agregues explicaciones.
@@ -674,6 +763,8 @@ addExtension({
     translateCharacterCard,
     translateCharacterData,
     translateCharacters,
+    translateImageBatch,
+    getAvailableCharacters,
     translateLorebook,
   },
 });
@@ -682,10 +773,13 @@ window.STUniversalTranslator = {
   translateCharacterCard,
   translateCharacterData,
   translateCharacters,
+  translateImageBatch,
+  getAvailableCharacters,
   translateLorebook,
   translateText,
   preserveVariables,
   restoreVariables,
+  saveBlobToDisk,
   DEFAULT_TRANSLATION_PROVIDER,
   SUPPORTED_TRANSLATION_PROVIDERS,
 };

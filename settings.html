@@ -106,9 +106,26 @@
       <input id="pngInput" type="file" accept="image/png" />
     </div>
 
+    <div>
+      <label for="pngBatchInput">Lote de imágenes PNG</label>
+      <input id="pngBatchInput" type="file" accept="image/png" multiple />
+    </div>
+
+    <div>
+      <label for="outputFolder">Carpeta de salida (imágenes)</label>
+      <input id="outputFolder" type="text" placeholder="ruta/de/salida/o/nombre-de-carpeta" />
+    </div>
+
     <button id="translatePngButton" type="button">Traducir tarjeta PNG</button>
-    <button id="translateLorebookButton" type="button">Procesar lorebook actual</button>
-    <button id="translateCharactersButton" type="button">Traducir personajes actuales</button>
+    <button id="translateImageBatchButton" type="button">Traducir lote de imágenes</button>
+    <button id="translateLorebookButton" type="button">Traducir lorebook actual</button>
+
+    <div>
+      <label for="characterBatchSelect">Seleccionar personajes agregados</label>
+      <select id="characterBatchSelect" multiple size="6"></select>
+      <button id="refreshCharacterListButton" type="button">Refrescar lista</button>
+    </div>
+    <button id="translateSelectedCharactersButton" type="button">Traducir personajes seleccionados</button>
 
     <div class="progress">
       <div id="translationProgress" class="progress-bar"></div>
@@ -120,8 +137,13 @@
   <script>
     const pngInput = document.getElementById('pngInput');
     const translatePngButton = document.getElementById('translatePngButton');
+    const translateImageBatchButton = document.getElementById('translateImageBatchButton');
     const translateLorebookButton = document.getElementById('translateLorebookButton');
-    const translateCharactersButton = document.getElementById('translateCharactersButton');
+    const translateSelectedCharactersButton = document.getElementById('translateSelectedCharactersButton');
+    const refreshCharacterListButton = document.getElementById('refreshCharacterListButton');
+    const pngBatchInput = document.getElementById('pngBatchInput');
+    const outputFolderInput = document.getElementById('outputFolder');
+    const characterBatchSelect = document.getElementById('characterBatchSelect');
     const sourceLangSelect = document.getElementById('sourceLang');
     const targetLangSelect = document.getElementById('targetLang');
     const providerSelect = document.getElementById('providerSelect');
@@ -136,6 +158,34 @@
       selectedFile = event.target.files?.[0] || null;
       statusText.textContent = selectedFile ? `Archivo seleccionado: ${selectedFile.name}` : 'Listo';
     });
+
+    function setCharacterList(characters) {
+      characterBatchSelect.innerHTML = '';
+      if (!characters?.length) {
+        const option = document.createElement('option');
+        option.textContent = 'No se encontraron personajes disponibles';
+        option.disabled = true;
+        characterBatchSelect.appendChild(option);
+        return;
+      }
+
+      characters.forEach((item) => {
+        const option = document.createElement('option');
+        option.value = item.id;
+        option.textContent = item.name;
+        characterBatchSelect.appendChild(option);
+      });
+    }
+
+    async function refreshCharacterList() {
+      const characters = window.STUniversalTranslator.getAvailableCharacters?.() || [];
+      setCharacterList(characters);
+      statusText.textContent = characters.length
+        ? `${characters.length} personajes disponibles` : 'No hay personajes disponibles';
+    }
+
+    refreshCharacterListButton.addEventListener('click', refreshCharacterList);
+    refreshCharacterList();
 
     function updateProgress(value, message) {
       progressBar.style.width = `${value}%`;
@@ -174,6 +224,38 @@
       }
     });
 
+    translateImageBatchButton.addEventListener('click', async () => {
+      const files = Array.from(pngBatchInput.files || []);
+      if (!files.length) {
+        statusText.textContent = 'Seleccione al menos una imagen PNG para el lote.';
+        return;
+      }
+
+      updateProgress(10, 'Iniciando traducción de lote de imágenes...');
+
+      try {
+        const results = await window.STUniversalTranslator.translateImageBatch(
+          files,
+          sourceLangSelect.value,
+          targetLangSelect.value,
+          outputFolderInput.value.trim(),
+          {
+            provider: providerSelect.value,
+            apiUrl: apiUrlInput.value.trim() || undefined,
+            apiKey: apiKeyInput.value.trim() || undefined,
+          },
+          Number(batchDelayInput.value || 500)
+        );
+
+        statusText.textContent = `Traducción de lote completada (${results.length} imágenes).`;
+        console.log('Image batch results:', results);
+        updateProgress(100);
+      } catch (error) {
+        statusText.textContent = `Error: ${error.message}`;
+        updateProgress(0);
+      }
+    });
+
     translateLorebookButton.addEventListener('click', async () => {
       updateProgress(5, 'Iniciando traducción de lorebook...');
       const currentLorebook = window.getCurrentLorebook?.();
@@ -206,19 +288,30 @@
       }
     });
 
-    translateCharactersButton.addEventListener('click', async () => {
-      updateProgress(5, 'Iniciando traducción de personajes...');
-      const currentCharacters = window.getCurrentCharacters?.() || window.getCurrentCharacter?.();
+    translateSelectedCharactersButton.addEventListener('click', async () => {
+      updateProgress(5, 'Iniciando traducción de personajes seleccionados...');
 
-      if (!currentCharacters) {
-        statusText.textContent = 'No se encontraron personajes actuales en el entorno.';
+      const selectedIds = Array.from(characterBatchSelect.selectedOptions).map((option) => option.value);
+      if (!selectedIds.length) {
+        statusText.textContent = 'Seleccione al menos un personaje de la lista.';
+        updateProgress(0);
+        return;
+      }
+
+      const availableCharacters = window.STUniversalTranslator.getAvailableCharacters?.() || [];
+      const selectedItems = availableCharacters
+        .filter((item) => selectedIds.includes(item.id))
+        .map((item) => item.data);
+
+      if (!selectedItems.length) {
+        statusText.textContent = 'No se encontraron los personajes seleccionados.';
         updateProgress(0);
         return;
       }
 
       try {
         const translatedCharacters = await window.STUniversalTranslator.translateCharacters(
-          currentCharacters,
+          selectedItems,
           sourceLangSelect.value,
           targetLangSelect.value,
           Number(batchDelayInput.value || 500),
@@ -235,7 +328,7 @@
           window.setCurrentCharacter(translatedCharacters);
         }
 
-        statusText.textContent = 'Personajes traducidos correctamente.';
+        statusText.textContent = 'Personajes seleccionados traducidos correctamente.';
         console.log('Translated characters:', translatedCharacters);
         updateProgress(100);
       } catch (error) {
