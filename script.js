@@ -752,7 +752,7 @@ async function translateLorebook(lorebook, sourceLang = 'auto', targetLang = 'es
   return translated;
 }
 
-async function onActivate() {
+export async function onActivate() {
   const context = globalThis.SillyTavern?.getContext?.();
   if (!context) {
     console.warn('ST-Universal-Translator: SillyTavern context no disponible en activate.');
@@ -789,8 +789,6 @@ async function onActivate() {
     console.warn('ST-Universal-Translator: error al cargar el panel de configuración', error);
   }
 }
-
-globalThis.onActivate = onActivate;
 
 addExtension({
   name: 'ST-Universal-Translator',
