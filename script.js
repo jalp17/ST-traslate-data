@@ -19,13 +19,13 @@ const SUPPORTED_TRANSLATION_PROVIDERS = [
 const PNG_SIGNATURE = new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
 
 function addExtension(extension) {
-  if (typeof window?.addExtension === 'function') {
-    window.addExtension(extension);
-  } else if (typeof addExtension === 'function') {
-    addExtension(extension);
-  } else {
-    console.warn('ST-Universal-Translator: no se encontró addExtension en el entorno.');
+  const hostAddExtension = typeof globalThis?.addExtension === 'function' ? globalThis.addExtension : null;
+  if (hostAddExtension && hostAddExtension !== addExtension) {
+    hostAddExtension(extension);
+    return;
   }
+
+  console.warn('ST-Universal-Translator: no se encontró addExtension en el entorno.');
 }
 
 function preserveVariables(text) {
