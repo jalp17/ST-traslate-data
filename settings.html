@@ -1,340 +1,204 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ST Universal Translator</title>
-  <style>
-    .translator-panel {
-      padding: 16px;
-      display: grid;
-      gap: 12px;
-      max-width: 520px;
-    }
+<style>
+  :host {
+    display: block;
+  }
 
-    .translator-panel label {
-      display: block;
-      font-weight: 600;
-      margin-bottom: 4px;
-    }
+  .translator-panel {
+    width: 100%;
+    max-width: 760px;
+    background: var(--panel-background, rgba(30, 30, 30, 0.95));
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    border-radius: 0.75rem;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03);
+    color: var(--text-color, #e6e6e6);
+    overflow: hidden;
+  }
 
-    .translator-panel select,
-    .translator-panel input,
-    .translator-panel button {
-      width: 100%;
-      box-sizing: border-box;
-    }
+  .translator-panel .inline-drawer-toggle {
+    cursor: pointer;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    background: var(--panel-background-alt, rgba(20, 20, 20, 0.95));
+  }
 
-    .progress {
-      position: relative;
-      height: 20px;
-      background: rgba(255, 255, 255, 0.15);
-      border-radius: 6px;
-      overflow: hidden;
-    }
+  .translator-panel .inline-drawer-toggle b {
+    font-size: 1rem;
+  }
 
-    .progress-bar {
-      height: 100%;
-      width: 0%;
-      background-color: #4caf50;
-      transition: width 0.3s ease;
-    }
+  .translator-panel .translator-panel-content {
+    padding: 1rem;
+    display: grid;
+    gap: 0.9rem;
+  }
 
-    .status-text {
-      font-size: 0.9rem;
-      color: var(--text-color, #ddd);
-    }
-  </style>
-</head>
-<body>
-  <div class="translator-panel">
-    <div>
-      <label for="sourceLang">Idioma origen</label>
-      <select id="sourceLang">
-        <option value="auto">Detectar automáticamente</option>
-        <option value="en">Inglés</option>
-        <option value="es" selected>Español</option>
-        <option value="pt">Portugués</option>
-        <option value="fr">Francés</option>
-        <option value="de">Alemán</option>
-      </select>
+  .translator-panel label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.3rem;
+    color: var(--text-color, #e6e6e6);
+  }
+
+  .translator-panel select,
+  .translator-panel input,
+  .translator-panel textarea {
+    width: 100%;
+    min-height: 2.2rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+    border-radius: 0.55rem;
+    background: var(--input-background, rgba(255, 255, 255, 0.05));
+    color: var(--text-color, #e6e6e6);
+    font: inherit;
+  }
+
+  .translator-panel select {
+    appearance: none;
+  }
+
+  .translator-panel button.menu_button {
+    width: 100%;
+    justify-content: center;
+    margin-top: 0.25rem;
+  }
+
+  .translator-panel .button-row {
+    display: grid;
+    gap: 0.7rem;
+  }
+
+  .translator-panel .progress {
+    position: relative;
+    height: 18px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .translator-panel .progress-bar {
+    height: 100%;
+    width: 0%;
+    background: var(--accent-color, #4caf50);
+    transition: width 0.25s ease;
+  }
+
+  .translator-panel .status-text {
+    font-size: 0.88rem;
+    color: var(--muted-text-color, #c7c7c7);
+  }
+
+  .translator-panel .section-group {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .translator-panel .file-group {
+    display: grid;
+    gap: 0.5rem;
+  }
+</style>
+
+<div class="translator-panel inline-drawer">
+  <div class="inline-drawer-toggle inline-drawer-header">
+    <div class="flex-container alignitemscenter margin0">
+      <b>ST Universal Translator</b>
+      <i id="translatorExtensionPopoutButton" class="fa-solid fa-window-restore menu_button margin0"></i>
     </div>
-
-    <div>
-      <label for="targetLang">Idioma destino</label>
-      <select id="targetLang">
-        <option value="es" selected>Español</option>
-        <option value="en">Inglés</option>
-        <option value="pt">Portugués</option>
-        <option value="fr">Francés</option>
-        <option value="de">Alemán</option>
-      </select>
-    </div>
-
-    <div>
-      <label for="providerSelect">Proveedor de traducción</label>
-      <select id="providerSelect">
-        <option value="openai" selected>OpenAI</option>
-        <option value="local_koboldcpp">KoboldCPP (local)</option>
-        <option value="llama_cpp">llama.cpp</option>
-        <option value="ollama">Ollama</option>
-        <option value="llm_studio">LLM Studio</option>
-        <option value="openrouter">OpenRouter</option>
-        <option value="electron_hub">Electron Hub</option>
-        <option value="google_aistudio">Google AI Studio</option>
-        <option value="google_translate">Google Traductor básico</option>
-      </select>
-    </div>
-
-    <div>
-      <label for="apiUrl">URL/API endpoint</label>
-      <input id="apiUrl" type="text" placeholder="https://api.openai.com/v1/..." />
-    </div>
-
-    <div>
-      <label for="apiKey">API key</label>
-      <input id="apiKey" type="text" placeholder="Clave de API (opcional según proveedor)" />
-    </div>
-
-    <div>
-      <label for="batchDelay">Delay por lote (ms)</label>
-      <input id="batchDelay" type="number" min="0" step="50" value="500" />
-    </div>
-
-    <div>
-      <label for="pngInput">PNG de tarjeta de personaje</label>
-      <input id="pngInput" type="file" accept="image/png" />
-    </div>
-
-    <div>
-      <label for="pngBatchInput">Lote de imágenes PNG</label>
-      <input id="pngBatchInput" type="file" accept="image/png" multiple />
-    </div>
-
-    <div>
-      <label for="outputFolder">Carpeta de salida (imágenes)</label>
-      <input id="outputFolder" type="text" placeholder="ruta/de/salida/o/nombre-de-carpeta" />
-    </div>
-
-    <button id="translatePngButton" type="button">Traducir tarjeta PNG</button>
-    <button id="translateImageBatchButton" type="button">Traducir lote de imágenes</button>
-    <button id="translateLorebookButton" type="button">Traducir lorebook actual</button>
-
-    <div>
-      <label for="characterBatchSelect">Seleccionar personajes agregados</label>
-      <select id="characterBatchSelect" multiple size="6"></select>
-      <button id="refreshCharacterListButton" type="button">Refrescar lista</button>
-    </div>
-    <button id="translateSelectedCharactersButton" type="button">Traducir personajes seleccionados</button>
-
-    <div class="progress">
-      <div id="translationProgress" class="progress-bar"></div>
-    </div>
-    <div id="statusText" class="status-text">Listo</div>
+    <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
   </div>
 
-  <script>
-    const pngInput = document.getElementById('pngInput');
-    const translatePngButton = document.getElementById('translatePngButton');
-    const translateImageBatchButton = document.getElementById('translateImageBatchButton');
-    const translateLorebookButton = document.getElementById('translateLorebookButton');
-    const translateSelectedCharactersButton = document.getElementById('translateSelectedCharactersButton');
-    const refreshCharacterListButton = document.getElementById('refreshCharacterListButton');
-    const pngBatchInput = document.getElementById('pngBatchInput');
-    const outputFolderInput = document.getElementById('outputFolder');
-    const characterBatchSelect = document.getElementById('characterBatchSelect');
-    const sourceLangSelect = document.getElementById('sourceLang');
-    const targetLangSelect = document.getElementById('targetLang');
-    const providerSelect = document.getElementById('providerSelect');
-    const apiUrlInput = document.getElementById('apiUrl');
-    const apiKeyInput = document.getElementById('apiKey');
-    const progressBar = document.getElementById('translationProgress');
-    const statusText = document.getElementById('statusText');
-    const batchDelayInput = document.getElementById('batchDelay');
+  <div class="inline-drawer-content">
+    <div class="translator-panel-content">
+      <div class="section-group">
+        <div>
+          <label for="sourceLang">Idioma origen</label>
+          <select id="sourceLang" class="text_pole">
+            <option value="auto">Detectar automáticamente</option>
+            <option value="en">Inglés</option>
+            <option value="es" selected>Español</option>
+            <option value="pt">Portugués</option>
+            <option value="fr">Francés</option>
+            <option value="de">Alemán</option>
+          </select>
+        </div>
 
-    let selectedFile = null;
-    pngInput.addEventListener('change', (event) => {
-      selectedFile = event.target.files?.[0] || null;
-      statusText.textContent = selectedFile ? `Archivo seleccionado: ${selectedFile.name}` : 'Listo';
-    });
+        <div>
+          <label for="targetLang">Idioma destino</label>
+          <select id="targetLang" class="text_pole">
+            <option value="es" selected>Español</option>
+            <option value="en">Inglés</option>
+            <option value="pt">Portugués</option>
+            <option value="fr">Francés</option>
+            <option value="de">Alemán</option>
+          </select>
+        </div>
 
-    function setCharacterList(characters) {
-      characterBatchSelect.innerHTML = '';
-      if (!characters?.length) {
-        const option = document.createElement('option');
-        option.textContent = 'No se encontraron personajes disponibles';
-        option.disabled = true;
-        characterBatchSelect.appendChild(option);
-        return;
-      }
+        <div>
+          <label for="providerSelect">Proveedor de traducción</label>
+          <select id="providerSelect" class="text_pole">
+            <option value="openai" selected>OpenAI</option>
+            <option value="local_koboldcpp">KoboldCPP (local)</option>
+            <option value="llama_cpp">llama.cpp</option>
+            <option value="ollama">Ollama</option>
+            <option value="llm_studio">LLM Studio</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="electron_hub">Electron Hub</option>
+            <option value="google_aistudio">Google AI Studio</option>
+            <option value="google_translate">Google Traductor básico</option>
+          </select>
+        </div>
 
-      characters.forEach((item) => {
-        const option = document.createElement('option');
-        option.value = item.id;
-        option.textContent = item.name;
-        characterBatchSelect.appendChild(option);
-      });
-    }
+        <div>
+          <label for="apiUrl">URL/API endpoint</label>
+          <input id="apiUrl" class="text_pole" type="text" placeholder="https://api.openai.com/v1/..." />
+        </div>
 
-    async function refreshCharacterList() {
-      const characters = window.STUniversalTranslator.getAvailableCharacters?.() || [];
-      setCharacterList(characters);
-      statusText.textContent = characters.length
-        ? `${characters.length} personajes disponibles` : 'No hay personajes disponibles';
-    }
+        <div>
+          <label for="apiKey">API key</label>
+          <input id="apiKey" class="text_pole" type="text" placeholder="Clave de API (opcional según proveedor)" />
+        </div>
 
-    refreshCharacterListButton.addEventListener('click', refreshCharacterList);
-    refreshCharacterList();
+        <div>
+          <label for="batchDelay">Delay por lote (ms)</label>
+          <input id="batchDelay" class="text_pole" type="number" min="0" step="50" value="500" />
+        </div>
+      </div>
 
-    function updateProgress(value, message) {
-      progressBar.style.width = `${value}%`;
-      statusText.textContent = message || statusText.textContent;
-    }
+      <div class="section-group file-group">
+        <div>
+          <label for="pngInput">PNG de tarjeta de personaje</label>
+          <input id="pngInput" type="file" accept="image/png" />
+        </div>
 
-    translatePngButton.addEventListener('click', async () => {
-      if (!selectedFile) {
-        statusText.textContent = 'Seleccione primero un PNG válido.';
-        return;
-      }
+        <div>
+          <label for="pngBatchInput">Lote de imágenes PNG</label>
+          <input id="pngBatchInput" type="file" accept="image/png" multiple />
+        </div>
 
-      updateProgress(10, 'Preparando traducción del PNG...');
+        <div>
+          <label for="outputFolder">Carpeta de salida (imágenes)</label>
+          <input id="outputFolder" class="text_pole" type="text" placeholder="ruta/de/salida/o/nombre-de-carpeta" />
+        </div>
+      </div>
 
-      try {
-        const translatedBlob = await window.STUniversalTranslator.translateCharacterCard(
-          selectedFile,
-          sourceLangSelect.value,
-          targetLangSelect.value,
-          {
-            provider: providerSelect.value,
-            apiUrl: apiUrlInput.value.trim() || undefined,
-            apiKey: apiKeyInput.value.trim() || undefined,
-          }
-        );
+      <div class="button-row">
+        <button id="translatePngButton" type="button" class="menu_button">Traducir tarjeta PNG</button>
+        <button id="translateImageBatchButton" type="button" class="menu_button">Traducir lote de imágenes</button>
+        <button id="translateLorebookButton" type="button" class="menu_button">Traducir lorebook actual</button>
+      </div>
 
-        updateProgress(100, 'Traducción completada. Descargando archivo.');
-        const url = URL.createObjectURL(translatedBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `translated-${selectedFile.name}`;
-        link.click();
-        URL.revokeObjectURL(url);
-      } catch (error) {
-        statusText.textContent = `Error: ${error.message}`;
-      }
-    });
+      <div class="section-group">
+        <div>
+          <label for="characterBatchSelect">Seleccionar personajes agregados</label>
+          <select id="characterBatchSelect" multiple size="6" class="text_pole"></select>
+          <button id="refreshCharacterListButton" type="button" class="menu_button">Refrescar lista</button>
+        </div>
+        <button id="translateSelectedCharactersButton" type="button" class="menu_button">Traducir personajes seleccionados</button>
+      </div>
 
-    translateImageBatchButton.addEventListener('click', async () => {
-      const files = Array.from(pngBatchInput.files || []);
-      if (!files.length) {
-        statusText.textContent = 'Seleccione al menos una imagen PNG para el lote.';
-        return;
-      }
-
-      updateProgress(10, 'Iniciando traducción de lote de imágenes...');
-
-      try {
-        const results = await window.STUniversalTranslator.translateImageBatch(
-          files,
-          sourceLangSelect.value,
-          targetLangSelect.value,
-          outputFolderInput.value.trim(),
-          {
-            provider: providerSelect.value,
-            apiUrl: apiUrlInput.value.trim() || undefined,
-            apiKey: apiKeyInput.value.trim() || undefined,
-          },
-          Number(batchDelayInput.value || 500)
-        );
-
-        statusText.textContent = `Traducción de lote completada (${results.length} imágenes).`;
-        console.log('Image batch results:', results);
-        updateProgress(100);
-      } catch (error) {
-        statusText.textContent = `Error: ${error.message}`;
-        updateProgress(0);
-      }
-    });
-
-    translateLorebookButton.addEventListener('click', async () => {
-      updateProgress(5, 'Iniciando traducción de lorebook...');
-      const currentLorebook = window.getCurrentLorebook?.();
-
-      if (!currentLorebook) {
-        statusText.textContent = 'No se encontró el lorebook actual en el entorno.';
-        updateProgress(0);
-        return;
-      }
-
-      try {
-        const translatedLorebook = await window.STUniversalTranslator.translateLorebook(
-          currentLorebook,
-          sourceLangSelect.value,
-          targetLangSelect.value,
-          Number(batchDelayInput.value || 500),
-          {
-            provider: providerSelect.value,
-            apiUrl: apiUrlInput.value.trim() || undefined,
-            apiKey: apiKeyInput.value.trim() || undefined,
-          }
-        );
-
-        statusText.textContent = 'Lorebook traducido correctamente.';
-        console.log('Translated lorebook:', translatedLorebook);
-        updateProgress(100);
-      } catch (error) {
-        statusText.textContent = `Error: ${error.message}`;
-        updateProgress(0);
-      }
-    });
-
-    translateSelectedCharactersButton.addEventListener('click', async () => {
-      updateProgress(5, 'Iniciando traducción de personajes seleccionados...');
-
-      const selectedIds = Array.from(characterBatchSelect.selectedOptions).map((option) => option.value);
-      if (!selectedIds.length) {
-        statusText.textContent = 'Seleccione al menos un personaje de la lista.';
-        updateProgress(0);
-        return;
-      }
-
-      const availableCharacters = window.STUniversalTranslator.getAvailableCharacters?.() || [];
-      const selectedItems = availableCharacters
-        .filter((item) => selectedIds.includes(item.id))
-        .map((item) => item.data);
-
-      if (!selectedItems.length) {
-        statusText.textContent = 'No se encontraron los personajes seleccionados.';
-        updateProgress(0);
-        return;
-      }
-
-      try {
-        const translatedCharacters = await window.STUniversalTranslator.translateCharacters(
-          selectedItems,
-          sourceLangSelect.value,
-          targetLangSelect.value,
-          Number(batchDelayInput.value || 500),
-          {
-            provider: providerSelect.value,
-            apiUrl: apiUrlInput.value.trim() || undefined,
-            apiKey: apiKeyInput.value.trim() || undefined,
-          }
-        );
-
-        if (window.setCurrentCharacters) {
-          window.setCurrentCharacters(translatedCharacters);
-        } else if (window.setCurrentCharacter) {
-          window.setCurrentCharacter(translatedCharacters);
-        }
-
-        statusText.textContent = 'Personajes seleccionados traducidos correctamente.';
-        console.log('Translated characters:', translatedCharacters);
-        updateProgress(100);
-      } catch (error) {
-        statusText.textContent = `Error: ${error.message}`;
-        updateProgress(0);
-      }
-    });
-  </script>
-</body>
-</html>
+      <div class="progress">
+        <div id="translationProgress" class="progress-bar"></div>
+      </div>
+      <div id="statusText" class="status-text">Listo</div>
+    </div>
+  </div>
+</div>
