@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ST Universal Translator</title>
+  <style>
+    .translator-panel {
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+      max-width: 520px;
+    }
+
+    .translator-panel label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .translator-panel select,
+    .translator-panel input,
+    .translator-panel button {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .progress {
+      position: relative;
+      height: 20px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background-color: #4caf50;
+      transition: width 0.3s ease;
+    }
+
+    .status-text {
+      font-size: 0.9rem;
+      color: var(--text-color, #ddd);
+    }
+  </style>
+</head>
+<body>
+  <div class="translator-panel">
+    <div>
+      <label for="sourceLang">Idioma origen</label>
+      <select id="sourceLang">
+        <option value="auto">Detectar automáticamente</option>
+        <option value="en">Inglés</option>
+        <option value="es" selected>Español</option>
+        <option value="pt">Portugués</option>
+        <option value="fr">Francés</option>
+        <option value="de">Alemán</option>
+      </select>
+    </div>
+
+    <div>
+      <label for="targetLang">Idioma destino</label>
+      <select id="targetLang">
+        <option value="es" selected>Español</option>
+        <option value="en">Inglés</option>
+        <option value="pt">Portugués</option>
+        <option value="fr">Francés</option>
+        <option value="de">Alemán</option>
+      </select>
+    </div>
+
+    <div>
+      <label for="providerSelect">Proveedor de traducción</label>
+      <select id="providerSelect">
+        <option value="openai" selected>OpenAI</option>
+        <option value="local_koboldcpp">KoboldCPP (local)</option>
+        <option value="llama_cpp">llama.cpp</option>
+        <option value="ollama">Ollama</option>
+        <option value="llm_studio">LLM Studio</option>
+        <option value="openrouter">OpenRouter</option>
+        <option value="electron_hub">Electron Hub</option>
+        <option value="google_aistudio">Google AI Studio</option>
+        <option value="google_translate">Google Traductor básico</option>
+      </select>
+    </div>
+
+    <div>
+      <label for="apiUrl">URL/API endpoint</label>
+      <input id="apiUrl" type="text" placeholder="https://api.openai.com/v1/..." />
+    </div>
+
+    <div>
+      <label for="apiKey">API key</label>
+      <input id="apiKey" type="text" placeholder="Clave de API (opcional según proveedor)" />
+    </div>
+
+    <div>
+      <label for="batchDelay">Delay por lote (ms)</label>
+      <input id="batchDelay" type="number" min="0" step="50" value="500" />
+    </div>
+
+    <div>
+      <label for="pngInput">PNG de tarjeta de personaje</label>
+      <input id="pngInput" type="file" accept="image/png" />
+    </div>
+
+    <button id="translatePngButton" type="button">Traducir tarjeta PNG</button>
+    <button id="translateLorebookButton" type="button">Procesar lorebook actual</button>
+
+    <div class="progress">
+      <div id="translationProgress" class="progress-bar"></div>
+    </div>
+    <div id="statusText" class="status-text">Listo</div>
+  </div>
+
+  <script src="./script.js"></script>
+  <script>
+    const pngInput = document.getElementById('pngInput');
+    const translatePngButton = document.getElementById('translatePngButton');
+    const translateLorebookButton = document.getElementById('translateLorebookButton');
+    const sourceLangSelect = document.getElementById('sourceLang');
+    const targetLangSelect = document.getElementById('targetLang');
+    const providerSelect = document.getElementById('providerSelect');
+    const apiUrlInput = document.getElementById('apiUrl');
+    const apiKeyInput = document.getElementById('apiKey');
+    const progressBar = document.getElementById('translationProgress');
+    const statusText = document.getElementById('statusText');
+    const batchDelayInput = document.getElementById('batchDelay');
+
+    let selectedFile = null;
+    pngInput.addEventListener('change', (event) => {
+      selectedFile = event.target.files?.[0] || null;
+      statusText.textContent = selectedFile ? `Archivo seleccionado: ${selectedFile.name}` : 'Listo';
+    });
+
+    function updateProgress(value, message) {
+      progressBar.style.width = `${value}%`;
+      statusText.textContent = message || statusText.textContent;
+    }
+
+    translatePngButton.addEventListener('click', async () => {
+      if (!selectedFile) {
+        statusText.textContent = 'Seleccione primero un PNG válido.';
+        return;
+      }
+
+      updateProgress(10, 'Preparando traducción del PNG...');
+
+      try {
+        const translatedBlob = await window.STUniversalTranslator.translateCharacterCard(
+          selectedFile,
+          sourceLangSelect.value,
+          targetLangSelect.value,
+          {
+            provider: providerSelect.value,
+            apiUrl: apiUrlInput.value.trim() || undefined,
+            apiKey: apiKeyInput.value.trim() || undefined,
+          }
+        );
+
+        updateProgress(100, 'Traducción completada. Descargando archivo.');
+        const url = URL.createObjectURL(translatedBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `translated-${selectedFile.name}`;
+        link.click();
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        statusText.textContent = `Error: ${error.message}`;
+      }
+    });
+
+    translateLorebookButton.addEventListener('click', async () => {
+      updateProgress(5, 'Iniciando traducción de lorebook...');
+      const currentLorebook = window.getCurrentLorebook?.();
+
+      if (!currentLorebook) {
+        statusText.textContent = 'No se encontró el lorebook actual en el entorno.';
+        updateProgress(0);
+        return;
+      }
+
+      try {
+        const translatedLorebook = await window.STUniversalTranslator.translateLorebook(
+          currentLorebook,
+          sourceLangSelect.value,
+          targetLangSelect.value,
+          Number(batchDelayInput.value || 500),
+          {
+            provider: providerSelect.value,
+            apiUrl: apiUrlInput.value.trim() || undefined,
+            apiKey: apiKeyInput.value.trim() || undefined,
+          }
+        );
+
+        statusText.textContent = 'Lorebook traducido correctamente.';
+        console.log('Translated lorebook:', translatedLorebook);
+        updateProgress(100);
+      } catch (error) {
+        statusText.textContent = `Error: ${error.message}`;
+        updateProgress(0);
+      }
+    });
+  </script>
+</body>
+</html>
