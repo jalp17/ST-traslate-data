@@ -752,6 +752,46 @@ async function translateLorebook(lorebook, sourceLang = 'auto', targetLang = 'es
   return translated;
 }
 
+async function onActivate() {
+  const context = globalThis.SillyTavern?.getContext?.();
+  if (!context) {
+    console.warn('ST-Universal-Translator: SillyTavern context no disponible en activate.');
+    return;
+  }
+
+  const { renderExtensionTemplateAsync } = context;
+  const target = document.querySelector('#extensions_settings2');
+  if (!target) {
+    return;
+  }
+
+  try {
+    let settingsHtml = null;
+    if (typeof renderExtensionTemplateAsync === 'function') {
+      settingsHtml = await renderExtensionTemplateAsync('third-party/ST-traslate-data', 'settings');
+    }
+
+    if (!settingsHtml) {
+      const currentScript = document.currentScript || document.querySelector('script[src*="script.js"]');
+      const baseUrl = currentScript?.src ? currentScript.src.replace(/\/[^/]*$/, '/') : null;
+      if (baseUrl) {
+        const settingsResponse = await fetch(new URL('settings.html', baseUrl).href);
+        settingsHtml = await settingsResponse.text();
+      }
+    }
+
+    if (settingsHtml) {
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = settingsHtml;
+      target.append(wrapper);
+    }
+  } catch (error) {
+    console.warn('ST-Universal-Translator: error al cargar el panel de configuración', error);
+  }
+}
+
+globalThis.onActivate = onActivate;
+
 addExtension({
   name: 'ST-Universal-Translator',
   version: '0.1.0',

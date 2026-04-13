@@ -2,6 +2,9 @@
   "display_name": "ST Universal Translator",
   "loading_order": 100,
   "js": "script.js",
+  "hooks": {
+    "activate": "onActivate"
+  },
   "author": "jalp17",
   "version": "0.1.0",
   "homePage": "https://github.com/jalp17/ST-traslate-data",
