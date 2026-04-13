@@ -1,0 +1,12 @@
+{
+  "display_name": "ST Universal Translator",
+  "loading_order": 100,
+  "js": "script.js",
+  "author": "jalp17",
+  "version": "0.1.0",
+  "homePage": "https://github.com/jalp17/ST-traslate-data",
+  "auto_update": false,
+  "minimum_client_version": "1.0.0",
+  "description": "Traduce lorebooks y tarjetas de personaje en SillyTavern.",
+  "dependencies": []
+}

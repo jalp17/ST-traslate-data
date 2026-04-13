@@ -26,13 +26,17 @@ Extensión para SillyTavern que traduce contenido de lorebooks y tarjetas de per
 
 ## Uso
 
-1. Abre `settings.html` dentro de SillyTavern o en el contexto de la extensión.
-2. Selecciona el idioma origen y destino.
-3. Elige el proveedor de traducción y configura `API URL` / `API key` según el proveedor.
-4. Para un solo PNG, sube el archivo y pulsa `Traducir tarjeta PNG`.
-5. Para un lote de imágenes, selecciona múltiples PNG y especifica la carpeta de salida.
-6. Para traducir personajes, selecciona uno o varios personajes en la lista y pulsa `Traducir personajes seleccionados`.
-7. Para lorebooks ya cargados en SillyTavern, pulsa `Traducir lorebook actual`.
+1. Instala la extensión colocando esta carpeta en `data/<user-handle>/extensions` o en `scripts/extensions/third-party` de SillyTavern.
+2. Asegúrate de que `manifest.json` y `script.js` estén presentes en el mismo directorio.
+3. Abre `settings.html` dentro de SillyTavern o en el contexto de la extensión.
+
+Repositorio del proyecto: https://github.com/jalp17/ST-traslate-data
+4. Selecciona el idioma origen y destino.
+5. Elige el proveedor de traducción y configura `API URL` / `API key` según el proveedor.
+6. Para un solo PNG, sube el archivo y pulsa `Traducir tarjeta PNG`.
+7. Para un lote de imágenes, selecciona múltiples PNG y especifica la carpeta de salida.
+8. Para traducir personajes, selecciona uno o varios personajes en la lista y pulsa `Traducir personajes seleccionados`.
+9. Para lorebooks ya cargados en SillyTavern, pulsa `Traducir lorebook actual`.
 
 ## Configuración de proveedores
 
