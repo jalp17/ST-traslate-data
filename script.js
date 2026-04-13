@@ -18,14 +18,56 @@ const SUPPORTED_TRANSLATION_PROVIDERS = [
 ];const ST_PLACEHOLDER_REGEX = /{{\s*([^{\s][^{}]*?)\s*}}/g;
 const PNG_SIGNATURE = new Uint8Array([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
 
-function addExtension(extension) {
-  const hostAddExtension = typeof globalThis?.addExtension === 'function' ? globalThis.addExtension : null;
-  if (hostAddExtension && hostAddExtension !== addExtension) {
-    hostAddExtension(extension);
-    return;
-  }
+function initializeExtensionPanel() {
+  const tryRenderSettings = async () => {
+    const ST = globalThis.SillyTavern;
+    if (!ST?.getContext) {
+      return false;
+    }
 
-  console.warn('ST-Universal-Translator: no se encontró addExtension en el entorno.');
+    const context = ST.getContext();
+    if (!context || typeof context.renderExtensionTemplateAsync !== 'function') {
+      return false;
+    }
+
+    const target = document.getElementById('extensions_settings2') || document.getElementById('extensions_settings');
+    if (!target) {
+      return false;
+    }
+
+    try {
+      let settingsHtml = await context.renderExtensionTemplateAsync('third-party/ST-traslate-data', 'settings');
+      if (!settingsHtml) {
+        const currentScript = document.currentScript || document.querySelector('script[src*="script.js"]');
+        const baseUrl = currentScript?.src ? currentScript.src.replace(/\/[^/]*$/, '/') : null;
+        if (baseUrl) {
+          const settingsResponse = await fetch(new URL('settings.html', baseUrl).href);
+          if (settingsResponse.ok) {
+            settingsHtml = await settingsResponse.text();
+          }
+        }
+      }
+
+      if (settingsHtml) {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = settingsHtml;
+        target.appendChild(wrapper.firstElementChild || wrapper);
+      }
+    } catch (error) {
+      console.warn('ST-Universal-Translator: error al cargar el panel de configuración', error);
+    }
+
+    return true;
+  };
+
+  const init = async () => {
+    const ready = await tryRenderSettings();
+    if (!ready) {
+      setTimeout(init, 1000);
+    }
+  };
+
+  init();
 }
 
 function preserveVariables(text) {
@@ -790,22 +832,7 @@ export async function onActivate() {
   }
 }
 
-addExtension({
-  name: 'ST-Universal-Translator',
-  version: '0.1.0',
-  description: 'Traduce lorebooks y tarjetas de personaje en SillyTavern.',
-  init() {
-    console.log('ST-Universal-Translator cargado.');
-  },
-  actions: {
-    translateCharacterCard,
-    translateCharacterData,
-    translateCharacters,
-    translateImageBatch,
-    getAvailableCharacters,
-    translateLorebook,
-  },
-});
+initializeExtensionPanel();
 
 window.STUniversalTranslator = {
   translateCharacterCard,
