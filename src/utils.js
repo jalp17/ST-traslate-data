@@ -51,6 +51,7 @@ export async function fetchJson(url, init = {}) {
       ...init,
     });
   } catch (error) {
+    console.error(`fetchJson network error calling ${url}:`, error);
     throw new Error(`Error de red al llamar a ${url}: ${error.message}. Verifica el endpoint, la conectividad y posibles restricciones CORS.`);
   }
 
@@ -65,6 +66,7 @@ export async function fetchJson(url, init = {}) {
     } catch {
       // Use plain text message.
     }
+    console.error(`fetchJson HTTP error calling ${url}: ${response.status} ${response.statusText}`, message);
     throw new Error(`Error en la llamada a ${url}: ${response.status} ${response.statusText} - ${message}`);
   }
 

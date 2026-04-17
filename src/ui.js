@@ -84,6 +84,7 @@ export function attachTranslatorSettingsEvents() {
   const sourceLangSelect = document.getElementById('sourceLang');
   const targetLangSelect = document.getElementById('targetLang');
   const providerSelect = document.getElementById('providerSelect');
+  const modelInput = document.getElementById('modelInput');
   const apiUrlInput = document.getElementById('apiUrl');
   const apiKeyInput = document.getElementById('apiKey');
   const apiKeyLoadButton = document.getElementById('apiKeyLoadButton');
@@ -93,13 +94,90 @@ export function attachTranslatorSettingsEvents() {
   const statusText = document.getElementById('statusText');
   const batchDelayInput = document.getElementById('batchDelay');
 
-  if (!pngInput || !translatePngButton || !translateImageBatchButton || !translateLorebookButton || !translateSelectedCharactersButton || !refreshCharacterListButton || !characterBatchSelect || !sourceLangSelect || !targetLangSelect || !providerSelect || !apiUrlInput || !apiKeyInput || !apiKeyLoadButton || !useProfileProviderCheckbox || !apiKeyProfileSelect || !progressBar || !statusText || !batchDelayInput) {
+  if (!pngInput || !translatePngButton || !translateImageBatchButton || !translateLorebookButton || !translateSelectedCharactersButton || !refreshCharacterListButton || !characterBatchSelect || !sourceLangSelect || !targetLangSelect || !providerSelect || !modelInput || !apiUrlInput || !apiKeyInput || !apiKeyLoadButton || !useProfileProviderCheckbox || !apiKeyProfileSelect || !progressBar || !statusText || !batchDelayInput) {
     return;
   }
 
   window.STTranslatorSettingsAttached = true;
 
   let savedConnectionProfiles = [];
+  const MODEL_SUGGESTIONS = {
+    openai: ['gpt-3.5-turbo', 'gpt-4', 'gpt-4o', 'gpt-3.5-turbo-0613', 'gpt-4-0613'],
+    local_koboldcpp: ['llama', 'llama2', 'mistral', 'kobold-70b'],
+    llama_cpp: ['llama', 'llama2', 'meta-llama/Llama-2-7b-chat', 'llama-3'],
+    ollama: ['llama2', 'mistral', 'gpt-4o', 'gpt-4'],
+    llm_studio: ['text-davinci-003', 'gpt-4', 'gpt-4o'],
+    openrouter: ['gpt-4', 'gpt-3.5-turbo', 'gpt-4o'],
+    electron_hub: ['default'],
+    google_aistudio: ['models/text-bison-001', 'models/chat-bison-001'],
+    google_translate: [],
+  };
+
+  function updateModelSuggestionList(provider) {
+    const suggestions = MODEL_SUGGESTIONS[provider] || [];
+    const listElement = document.getElementById('modelSuggestions');
+    if (!listElement) {
+      return;
+    }
+
+    listElement.innerHTML = '';
+    suggestions.forEach((model) => {
+      const option = document.createElement('option');
+      option.value = model;
+      listElement.appendChild(option);
+    });
+
+    if (!modelInput.value.trim()) {
+      modelInput.placeholder = suggestions.length ? `Ej: ${suggestions[0]}` : 'Escriba el modelo';
+    }
+  }
+
+  function buildProviderConfig() {
+    const provider = providerSelect.value;
+    const config = {
+      provider,
+      apiKey: apiKeyInput.value.trim() || undefined,
+      apiUrl: apiUrlInput.value.trim() || undefined,
+      model: modelInput.value.trim() || undefined,
+    };
+
+    if (useProfileProviderCheckbox.checked) {
+      const profileIndex = apiKeyProfileSelect.value;
+      if (profileIndex) {
+        const profile = savedConnectionProfiles[Number(profileIndex)];
+        if (profile) {
+          if (profile.apiKey) config.apiKey = profile.apiKey;
+          if (profile.apiUrl) config.apiUrl = profile.apiUrl;
+          if (profile.provider) config.provider = profile.provider;
+          if (profile.model) config.model = profile.model;
+        }
+      }
+    }
+
+    return config;
+  }
+
+  function validateProviderConfig(config) {
+    if (!config.provider) {
+      throw new Error('Debe seleccionar un proveedor de traducción.');
+    }
+
+    if (config.provider === 'openai' && !config.apiKey) {
+      throw new Error('OpenAI requiere una API key válida en el campo correspondiente o desde el perfil de conexión.');
+    }
+
+    if (config.provider === 'google_translate' && !config.apiKey && !config.apiUrl) {
+      throw new Error('Google Translate requiere clave API o un endpoint personalizado.');
+    }
+
+    return config;
+  }
+
+  function handleTranslationError(error, fallbackMessage) {
+    console.error('Traducción fallida:', error);
+    statusText.textContent = error?.message || fallbackMessage || 'Error desconocido durante la traducción.';
+    updateProgress(0);
+  }
 
   function setCharacterList(characters) {
     characterBatchSelect.innerHTML = '';
@@ -141,13 +219,14 @@ export function attachTranslatorSettingsEvents() {
     const apiKey = profile.apiKey || profile.key || profile.token || profile.accessToken || profile.secret || profile.secretKey;
     const apiUrl = profile.apiUrl || profile.endpoint || profile.baseUrl || profile.url || profile.api_url;
     const provider = profile.provider || profile.service || profile.type || profile.backend || profile.engine || profile.modelProvider;
+    const model = profile.model || profile.modelName || profile.model_id || profile.modelId;
     const name = profile.name || profile.label || profile.title || profile.id || profile.uuid || 'Perfil desconocido';
 
     if (!apiKey && !apiUrl && !provider) {
       return null;
     }
 
-    return { name, apiKey, apiUrl, provider };
+    return { name, apiKey, apiUrl, provider, model };
   }
 
   async function findSavedApiKeyProfiles() {
@@ -220,6 +299,10 @@ export function attachTranslatorSettingsEvents() {
     if (profile.apiUrl) {
       apiUrlInput.value = profile.apiUrl;
     }
+    if (profile.model) {
+      modelInput.value = profile.model;
+    }
+    updateModelSuggestionList(providerSelect.value);
   }
 
   function applyProfileSelection() {
@@ -240,6 +323,8 @@ export function attachTranslatorSettingsEvents() {
     if (useProfileProviderCheckbox.checked) {
       applyProfileProviderSettings(profile);
     }
+
+    updateModelSuggestionList(providerSelect.value);
   }
 
   apiKeyProfileSelect.addEventListener('change', applyProfileSelection);
@@ -275,9 +360,12 @@ export function attachTranslatorSettingsEvents() {
 
   providerSelect.addEventListener('change', () => {
     updateApiSettingsForProvider(providerSelect.value);
+    updateModelSuggestionList(providerSelect.value);
+    console.log('Proveedor seleccionado:', providerSelect.value);
   });
 
   updateApiSettingsForProvider(providerSelect.value);
+  updateModelSuggestionList(providerSelect.value);
 
   let translatorSelectedFile = null;
 
@@ -298,15 +386,13 @@ export function attachTranslatorSettingsEvents() {
     updateProgress(10, 'Preparando traducción del PNG...');
 
     try {
+      const providerConfig = validateProviderConfig(buildProviderConfig());
+      console.log('Iniciando traducción de PNG con configuración:', providerConfig);
       const translatedBlob = await window.STUniversalTranslator.translateCharacterCard(
         translatorSelectedFile,
         sourceLangSelect.value,
         targetLangSelect.value,
-        {
-          provider: providerSelect.value,
-          apiUrl: apiUrlInput.value.trim() || undefined,
-          apiKey: apiKeyInput.value.trim() || undefined,
-        }
+        providerConfig
       );
 
       updateProgress(100, 'Traducción completada. Descargando archivo.');
@@ -317,7 +403,7 @@ export function attachTranslatorSettingsEvents() {
       link.click();
       URL.revokeObjectURL(url);
     } catch (error) {
-      statusText.textContent = `Error: ${error.message}`;
+      handleTranslationError(error, 'Error durante la traducción del PNG.');
     }
   });
 
@@ -331,16 +417,14 @@ export function attachTranslatorSettingsEvents() {
     updateProgress(10, 'Iniciando traducción de lote de imágenes...');
 
     try {
+      const providerConfig = validateProviderConfig(buildProviderConfig());
+      console.log('Iniciando traducción de lote de imágenes con configuración:', providerConfig);
       const results = await window.STUniversalTranslator.translateImageBatch(
         files,
         sourceLangSelect.value,
         targetLangSelect.value,
         outputFolderInput.value.trim(),
-        {
-          provider: providerSelect.value,
-          apiUrl: apiUrlInput.value.trim() || undefined,
-          apiKey: apiKeyInput.value.trim() || undefined,
-        },
+        providerConfig,
         Number(batchDelayInput.value || 500)
       );
 
@@ -348,8 +432,7 @@ export function attachTranslatorSettingsEvents() {
       console.log('Image batch results:', results);
       updateProgress(100);
     } catch (error) {
-      statusText.textContent = `Error: ${error.message}`;
-      updateProgress(0);
+      handleTranslationError(error, 'Error durante la traducción de lote.');
     }
   });
 
@@ -364,24 +447,21 @@ export function attachTranslatorSettingsEvents() {
     }
 
     try {
+      const providerConfig = validateProviderConfig(buildProviderConfig());
+      console.log('Iniciando traducción de lorebook con configuración:', providerConfig);
       const translatedLorebook = await window.STUniversalTranslator.translateLorebook(
         currentLorebook,
         sourceLangSelect.value,
         targetLangSelect.value,
         Number(batchDelayInput.value || 500),
-        {
-          provider: providerSelect.value,
-          apiUrl: apiUrlInput.value.trim() || undefined,
-          apiKey: apiKeyInput.value.trim() || undefined,
-        }
+        providerConfig
       );
 
       statusText.textContent = 'Lorebook traducido correctamente.';
       console.log('Translated lorebook:', translatedLorebook);
       updateProgress(100);
     } catch (error) {
-      statusText.textContent = `Error: ${error.message}`;
-      updateProgress(0);
+      handleTranslationError(error, 'Error durante la traducción del lorebook.');
     }
   });
 
@@ -407,16 +487,14 @@ export function attachTranslatorSettingsEvents() {
     }
 
     try {
+      const providerConfig = validateProviderConfig(buildProviderConfig());
+      console.log('Iniciando traducción de personajes con configuración:', providerConfig);
       const translatedCharacters = await window.STUniversalTranslator.translateCharacters(
         selectedItems,
         sourceLangSelect.value,
         targetLangSelect.value,
         Number(batchDelayInput.value || 500),
-        {
-          provider: providerSelect.value,
-          apiUrl: apiUrlInput.value.trim() || undefined,
-          apiKey: apiKeyInput.value.trim() || undefined,
-        }
+        providerConfig
       );
 
       if (window.setCurrentCharacters) {
@@ -429,8 +507,7 @@ export function attachTranslatorSettingsEvents() {
       console.log('Translated characters:', translatedCharacters);
       updateProgress(100);
     } catch (error) {
-      statusText.textContent = `Error: ${error.message}`;
-      updateProgress(0);
+      handleTranslationError(error, 'Error durante la traducción de personajes seleccionados.');
     }
   });
 

@@ -28,71 +28,92 @@
   .translator-panel .translator-panel-content {
     padding: 1rem;
     display: grid;
-    gap: 0.9rem;
+    gap: 1rem;
   }
 
   .translator-panel label {
     display: block;
     font-weight: 600;
-    margin-bottom: 0.3rem;
+    margin-bottom: 0.35rem;
     color: var(--text-color, #e6e6e6);
   }
 
-  .translator-panel .checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    font-weight: 600;
-    color: var(--text-color, #e6e6e6);
+  .translator-panel .section-card {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.85rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.03);
   }
 
-  .translator-panel .input-with-button {
+  .translator-panel .section-title {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.85rem;
+    color: var(--text-color, #f5f5f5);
+  }
+
+  .translator-panel .form-grid {
     display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 0.5rem;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 0.9rem;
   }
 
-  .translator-panel .hint-text {
-    font-size: 0.85rem;
-    color: var(--muted-text-color, #c7c7c7);
-    margin-top: -0.2rem;
-    margin-bottom: 0.5rem;
+  .translator-panel .form-grid.full-width {
+    grid-template-columns: 1fr;
   }
 
-  .translator-panel select,
-  .translator-panel input,
-  .translator-panel textarea {
-    width: 100%;
-    min-height: 2.2rem;
-    padding: 0.6rem 0.75rem;
-    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
-    border-radius: 0.55rem;
-    background: var(--input-background, rgba(255, 255, 255, 0.05));
-    color: var(--text-color, #e6e6e6);
-    font: inherit;
+  .translator-panel .full-width {
+    grid-column: 1 / -1;
   }
 
-  .translator-panel select {
-    appearance: none;
+  .translator-panel .section-card + .section-card {
+    margin-top: 0.5rem;
   }
 
-  .translator-panel button.menu_button {
+  .translator-panel .menu_button {
     width: 100%;
     justify-content: center;
     margin-top: 0.25rem;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-color, #e6e6e6);
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease;
+  }
+
+  .translator-panel .menu_button:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .translator-panel .menu_button:active {
+    transform: translateY(1px);
+  }
+
+  .translator-panel .checkbox-label input {
+    transform: scale(1.05);
+  }
+
+  @media (max-width: 720px) {
+    .translator-panel .form-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .translator-panel .section-card .hint-text {
+    margin-top: 0.75rem;
   }
 
   .translator-panel .button-row {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 0.7rem;
+    gap: 0.75rem;
   }
 
   .translator-panel .character-row {
     display: grid;
     grid-template-columns: 1fr auto;
-    gap: 0.7rem;
-    align-items: end;
+    gap: 0.9rem;
+    align-items: start;
   }
 
   .translator-panel .progress {
@@ -115,14 +136,52 @@
     color: var(--muted-text-color, #c7c7c7);
   }
 
-  .translator-panel .section-group {
-    display: grid;
-    gap: 0.75rem;
+  .translator-panel .checkbox-group,
+  .translator-panel .hint-text,
+  .translator-panel .file-group,
+  .translator-panel .full-width {
+    width: 100%;
   }
 
-  .translator-panel .file-group {
-    display: grid;
-    gap: 0.5rem;
+  .translator-panel select,
+  .translator-panel input,
+  .translator-panel textarea {
+    width: 100%;
+    min-height: 2.5rem;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+    border-radius: 0.75rem;
+    background: var(--input-background, rgba(255, 255, 255, 0.05));
+    color: var(--text-color, #e6e6e6);
+    font: inherit;
+  }
+
+  .translator-panel select {
+    appearance: none;
+  }
+
+  .translator-panel .menu_button {
+    width: 100%;
+    justify-content: center;
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-color, #e6e6e6);
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease;
+  }
+
+  .translator-panel .menu_button:hover {
+    background: rgba(255, 255, 255, 0.14);
+  }
+
+  .translator-panel .menu_button:active {
+    transform: translateY(1px);
+  }
+
+  .translator-panel .checkbox-label input {
+    transform: scale(1.05);
   }
 </style>
 
@@ -137,96 +196,120 @@
 
   <div class="inline-drawer-content">
     <div class="translator-panel-content">
-      <div class="section-group">
-        <div>
-          <label for="sourceLang">Idioma origen</label>
-          <select id="sourceLang" class="text_pole">
-            <option value="auto">Detectar automáticamente</option>
-            <option value="en">Inglés</option>
-            <option value="es" selected>Español</option>
-            <option value="pt">Portugués</option>
-            <option value="fr">Francés</option>
-            <option value="de">Alemán</option>
-          </select>
-        </div>
-
-        <div>
-          <label for="targetLang">Idioma destino</label>
-          <select id="targetLang" class="text_pole">
-            <option value="es" selected>Español</option>
-            <option value="en">Inglés</option>
-            <option value="pt">Portugués</option>
-            <option value="fr">Francés</option>
-            <option value="de">Alemán</option>
-          </select>
-        </div>
-
-        <div>
-          <label for="providerSelect">Proveedor de traducción</label>
-          <select id="providerSelect" class="text_pole">
-            <option value="openai" selected>OpenAI</option>
-            <option value="local_koboldcpp">KoboldCPP (local)</option>
-            <option value="llama_cpp">llama.cpp</option>
-            <option value="ollama">Ollama</option>
-            <option value="llm_studio">LLM Studio</option>
-            <option value="openrouter">OpenRouter</option>
-            <option value="electron_hub">Electron Hub</option>
-            <option value="google_aistudio">Google AI Studio</option>
-            <option value="google_translate">Google Traductor básico</option>
-          </select>
-        </div>
-
-        <div>
-          <label for="apiUrl">URL/API endpoint</label>
-          <input id="apiUrl" class="text_pole" type="text" placeholder="https://api.openai.com/v1/..." />
-        </div>
-
-        <div>
-          <label for="apiKey">API key</label>
-          <div class="input-with-button">
-            <input id="apiKey" class="text_pole" type="text" placeholder="Clave de API (opcional según proveedor)" />
-            <button id="apiKeyLoadButton" type="button" class="menu_button">Seleccionar clave</button>
+      <div class="section-card">
+        <div class="section-title">Idioma y proveedor</div>
+        <div class="form-grid">
+          <div>
+            <label for="sourceLang">Idioma origen</label>
+            <select id="sourceLang" class="text_pole">
+              <option value="auto">Detectar automáticamente</option>
+              <option value="en">Inglés</option>
+              <option value="es" selected>Español</option>
+              <option value="pt">Portugués</option>
+              <option value="fr">Francés</option>
+              <option value="de">Alemán</option>
+            </select>
           </div>
-        </div>
 
-        <div class="checkbox-group">
-          <label class="checkbox-label">
-            <input id="useProfileProvider" type="checkbox" />
-            Usar proveedor y endpoint/API del perfil de conexión
-          </label>
-        </div>
+          <div>
+            <label for="targetLang">Idioma destino</label>
+            <select id="targetLang" class="text_pole">
+              <option value="es" selected>Español</option>
+              <option value="en">Inglés</option>
+              <option value="pt">Portugués</option>
+              <option value="fr">Francés</option>
+              <option value="de">Alemán</option>
+            </select>
+          </div>
 
-        <div class="hint-text">
-          Si está marcado, la configuración del proveedor y el endpoint/api se aplicará desde el perfil seleccionado. Si no, solo se podrá usar la clave guardada.
-        </div>
+          <div>
+            <label for="providerSelect">Proveedor de traducción</label>
+            <select id="providerSelect" class="text_pole">
+              <option value="openai" selected>OpenAI</option>
+              <option value="local_koboldcpp">KoboldCPP (local)</option>
+              <option value="llama_cpp">llama.cpp</option>
+              <option value="ollama">Ollama</option>
+              <option value="llm_studio">LLM Studio</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="electron_hub">Electron Hub</option>
+              <option value="google_aistudio">Google AI Studio</option>
+              <option value="google_translate">Google Traductor básico</option>
+            </select>
+          </div>
 
-        <div>
-          <label for="apiKeyProfileSelect">Perfil de conexión guardado</label>
-          <select id="apiKeyProfileSelect" class="text_pole">
-            <option value="">Seleccione un perfil de conexión</option>
-          </select>
-        </div>
+          <div>
+            <label for="modelInput">Modelo</label>
+            <input id="modelInput" class="text_pole" type="text" placeholder="Ej: gpt-3.5-turbo, gpt-4, llama2" list="modelSuggestions" />
+            <datalist id="modelSuggestions">
+              <option value="gpt-3.5-turbo"></option>
+              <option value="gpt-4"></option>
+              <option value="gpt-4o"></option>
+              <option value="llama"></option>
+              <option value="llama2"></option>
+              <option value="text-davinci-003"></option>
+              <option value="models/text-bison-001"></option>
+            </datalist>
+          </div>
 
-        <div>
-          <label for="batchDelay">Delay por lote (ms)</label>
-          <input id="batchDelay" class="text_pole" type="number" min="0" step="50" value="500" />
+          <div class="full-width">
+            <label for="apiUrl">URL/API endpoint</label>
+            <input id="apiUrl" class="text_pole" type="text" placeholder="https://api.openai.com/v1/..." />
+          </div>
         </div>
       </div>
 
-      <div class="section-group file-group">
-        <div>
-          <label for="pngInput">PNG de tarjeta de personaje</label>
-          <input id="pngInput" type="file" accept="image/png" />
-        </div>
+      <div class="section-card">
+        <div class="section-title">Credenciales y perfil</div>
+        <div class="form-grid">
+          <div class="full-width">
+            <label for="apiKey">API key</label>
+            <div class="input-with-button">
+              <input id="apiKey" class="text_pole" type="text" placeholder="Clave de API (opcional según proveedor)" />
+              <button id="apiKeyLoadButton" type="button" class="menu_button">Seleccionar</button>
+            </div>
+          </div>
 
-        <div>
-          <label for="pngBatchInput">Lote de imágenes PNG</label>
-          <input id="pngBatchInput" type="file" accept="image/png" multiple />
-        </div>
+          <div class="full-width">
+            <label for="apiKeyProfileSelect">Perfil de conexión guardado</label>
+            <select id="apiKeyProfileSelect" class="text_pole">
+              <option value="">Seleccione un perfil de conexión</option>
+            </select>
+          </div>
 
-        <div>
-          <label for="outputFolder">Carpeta de salida (imágenes)</label>
-          <input id="outputFolder" class="text_pole" type="text" placeholder="ruta/de/salida/o/nombre-de-carpeta" />
+          <div class="full-width checkbox-group">
+            <label class="checkbox-label">
+              <input id="useProfileProvider" type="checkbox" />
+              Usar proveedor y endpoint/API del perfil de conexión
+            </label>
+          </div>
+
+          <div class="full-width">
+            <label for="batchDelay">Delay por lote (ms)</label>
+            <input id="batchDelay" class="text_pole" type="number" min="0" step="50" value="500" />
+          </div>
+        </div>
+        <div class="hint-text">
+          Si está marcado, la configuración del proveedor y el endpoint/api se aplicará desde el perfil seleccionado. Si no, solo se podrá usar la clave guardada.
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">Archivos y salida</div>
+        <div class="form-grid">
+          <div>
+            <label for="pngInput">PNG de tarjeta de personaje</label>
+            <input id="pngInput" type="file" accept="image/png" />
+          </div>
+
+          <div>
+            <label for="pngBatchInput">Lote de imágenes PNG</label>
+            <input id="pngBatchInput" type="file" accept="image/png" multiple />
+          </div>
+
+          <div class="full-width">
+            <label for="outputFolder">Carpeta de salida (imágenes)</label>
+            <input id="outputFolder" class="text_pole" type="text" placeholder="ruta/de/salida/o/nombre-de-carpeta" />
+          </div>
         </div>
       </div>
 
@@ -236,15 +319,18 @@
         <button id="translateLorebookButton" type="button" class="menu_button">Traducir lorebook actual</button>
       </div>
 
-      <div class="section-group character-row">
-        <div>
-          <label for="characterBatchSelect">Seleccionar personajes agregados</label>
-          <select id="characterBatchSelect" multiple size="6" class="text_pole"></select>
+      <div class="section-card">
+        <div class="section-title">Personajes</div>
+        <div class="character-row">
+          <div>
+            <label for="characterBatchSelect">Seleccionar personajes agregados</label>
+            <select id="characterBatchSelect" multiple size="6" class="text_pole"></select>
+          </div>
+          <button id="refreshCharacterListButton" type="button" class="menu_button">Refrescar lista</button>
         </div>
-        <button id="refreshCharacterListButton" type="button" class="menu_button">Refrescar lista</button>
-      </div>
-      <div class="button-row">
-        <button id="translateSelectedCharactersButton" type="button" class="menu_button">Traducir personajes seleccionados</button>
+        <div class="button-row" style="margin-top: 1rem;">
+          <button id="translateSelectedCharactersButton" type="button" class="menu_button">Traducir personajes seleccionados</button>
+        </div>
       </div>
 
       <div class="progress">
