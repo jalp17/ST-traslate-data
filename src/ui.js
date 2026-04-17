@@ -86,15 +86,20 @@ export function attachTranslatorSettingsEvents() {
   const providerSelect = document.getElementById('providerSelect');
   const apiUrlInput = document.getElementById('apiUrl');
   const apiKeyInput = document.getElementById('apiKey');
+  const apiKeyLoadButton = document.getElementById('apiKeyLoadButton');
+  const useProfileProviderCheckbox = document.getElementById('useProfileProvider');
+  const apiKeyProfileSelect = document.getElementById('apiKeyProfileSelect');
   const progressBar = document.getElementById('translationProgress');
   const statusText = document.getElementById('statusText');
   const batchDelayInput = document.getElementById('batchDelay');
 
-  if (!pngInput || !translatePngButton || !translateImageBatchButton || !translateLorebookButton || !translateSelectedCharactersButton || !refreshCharacterListButton || !characterBatchSelect || !sourceLangSelect || !targetLangSelect || !providerSelect || !apiUrlInput || !apiKeyInput || !progressBar || !statusText || !batchDelayInput) {
+  if (!pngInput || !translatePngButton || !translateImageBatchButton || !translateLorebookButton || !translateSelectedCharactersButton || !refreshCharacterListButton || !characterBatchSelect || !sourceLangSelect || !targetLangSelect || !providerSelect || !apiUrlInput || !apiKeyInput || !apiKeyLoadButton || !useProfileProviderCheckbox || !apiKeyProfileSelect || !progressBar || !statusText || !batchDelayInput) {
     return;
   }
 
   window.STTranslatorSettingsAttached = true;
+
+  let savedConnectionProfiles = [];
 
   function setCharacterList(characters) {
     characterBatchSelect.innerHTML = '';
@@ -128,6 +133,138 @@ export function attachTranslatorSettingsEvents() {
     }
   }
 
+  function normalizeProfile(profile) {
+    if (!profile || typeof profile !== 'object') {
+      return null;
+    }
+
+    const apiKey = profile.apiKey || profile.key || profile.token || profile.accessToken || profile.secret || profile.secretKey;
+    const apiUrl = profile.apiUrl || profile.endpoint || profile.baseUrl || profile.url || profile.api_url;
+    const provider = profile.provider || profile.service || profile.type || profile.backend || profile.engine || profile.modelProvider;
+    const name = profile.name || profile.label || profile.title || profile.id || profile.uuid || 'Perfil desconocido';
+
+    if (!apiKey && !apiUrl && !provider) {
+      return null;
+    }
+
+    return { name, apiKey, apiUrl, provider };
+  }
+
+  async function findSavedApiKeyProfiles() {
+    const candidates = [];
+    const sources = [
+      window.SillyTavern?.getConnectionProfiles,
+      window.SillyTavern?.getConnections,
+      window.SillyTavern?.connectionProfiles,
+      window.SillyTavern?.connections,
+      window.getConnectionProfiles,
+      window.getConnections,
+      window.connectionProfiles,
+      window.connections,
+    ];
+
+    for (const source of sources) {
+      try {
+        let value;
+        if (typeof source === 'function') {
+          const boundSource = source.bind(window.SillyTavern || window);
+          value = await boundSource();
+        } else {
+          value = source;
+        }
+
+        if (!value) continue;
+        if (Array.isArray(value)) {
+          candidates.push(...value);
+          continue;
+        }
+        if (typeof value === 'object') {
+          candidates.push(value);
+          continue;
+        }
+      } catch {
+        // ignore unsupported source
+      }
+    }
+
+    return candidates
+      .map(normalizeProfile)
+      .filter((profile) => profile && (profile.apiKey || profile.apiUrl));
+  }
+
+  function populateApiKeyProfiles(profiles) {
+    savedConnectionProfiles = profiles;
+    apiKeyProfileSelect.innerHTML = '';
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = profiles.length ? 'Seleccione un perfil de conexión' : 'No hay perfiles de conexión guardados';
+    defaultOption.disabled = !profiles.length;
+    defaultOption.selected = true;
+    apiKeyProfileSelect.appendChild(defaultOption);
+
+    profiles.forEach((profile, index) => {
+      const option = document.createElement('option');
+      option.value = String(index);
+      option.textContent = profile.name;
+      apiKeyProfileSelect.appendChild(option);
+    });
+
+    apiKeyProfileSelect.disabled = !profiles.length;
+    apiKeyLoadButton.disabled = !profiles.length;
+  }
+
+  function applyProfileProviderSettings(profile) {
+    if (profile.provider && Array.from(providerSelect.options).some((option) => option.value === profile.provider)) {
+      providerSelect.value = profile.provider;
+    }
+    if (profile.apiUrl) {
+      apiUrlInput.value = profile.apiUrl;
+    }
+  }
+
+  function applyProfileSelection() {
+    const profileIndex = apiKeyProfileSelect.value;
+    if (!profileIndex) {
+      return;
+    }
+
+    const profile = savedConnectionProfiles[Number(profileIndex)];
+    if (!profile) {
+      return;
+    }
+
+    if (profile.apiKey) {
+      apiKeyInput.value = profile.apiKey;
+    }
+
+    if (useProfileProviderCheckbox.checked) {
+      applyProfileProviderSettings(profile);
+    }
+  }
+
+  apiKeyProfileSelect.addEventListener('change', applyProfileSelection);
+  useProfileProviderCheckbox.addEventListener('change', applyProfileSelection);
+  apiKeyLoadButton.addEventListener('click', () => {
+    const profileIndex = apiKeyProfileSelect.value;
+    if (!profileIndex) {
+      statusText.textContent = 'Seleccione primero un perfil de conexión para cargar la clave.';
+      return;
+    }
+
+    const profile = savedConnectionProfiles[Number(profileIndex)];
+    if (!profile?.apiKey) {
+      statusText.textContent = 'El perfil seleccionado no tiene una API key guardada.';
+      return;
+    }
+
+    apiKeyInput.value = profile.apiKey;
+    statusText.textContent = 'Clave API cargada desde el perfil seleccionado.';
+
+    if (useProfileProviderCheckbox.checked) {
+      applyProfileProviderSettings(profile);
+    }
+  });
+
   function updateApiSettingsForProvider(provider) {
     const defaultUrl = DEFAULT_ENDPOINTS[provider] || '';
     apiUrlInput.placeholder = defaultUrl;
@@ -143,6 +280,10 @@ export function attachTranslatorSettingsEvents() {
   updateApiSettingsForProvider(providerSelect.value);
 
   let translatorSelectedFile = null;
+
+  findSavedApiKeyProfiles().then(populateApiKeyProfiles).catch(() => {
+    populateApiKeyProfiles([]);
+  });
   pngInput.addEventListener('change', (event) => {
     translatorSelectedFile = event.target.files?.[0] || null;
     statusText.textContent = translatorSelectedFile ? `Archivo seleccionado: ${translatorSelectedFile.name}` : 'Listo';

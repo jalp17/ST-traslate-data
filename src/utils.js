@@ -41,8 +41,19 @@ export function buildJsonHeaders(apiKey, extra = {}) {
   return headers;
 }
 
-export async function fetchJson(url, init) {
-  const response = await fetch(url, init);
+export async function fetchJson(url, init = {}) {
+  let response;
+  try {
+    response = await fetch(url, {
+      mode: 'cors',
+      cache: 'no-cache',
+      credentials: 'omit',
+      ...init,
+    });
+  } catch (error) {
+    throw new Error(`Error de red al llamar a ${url}: ${error.message}. Verifica el endpoint, la conectividad y posibles restricciones CORS.`);
+  }
+
   const contentType = response.headers.get('content-type') || '';
   const bodyText = await response.text();
 

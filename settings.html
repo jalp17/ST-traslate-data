@@ -38,6 +38,27 @@
     color: var(--text-color, #e6e6e6);
   }
 
+  .translator-panel .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-weight: 600;
+    color: var(--text-color, #e6e6e6);
+  }
+
+  .translator-panel .input-with-button {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.5rem;
+  }
+
+  .translator-panel .hint-text {
+    font-size: 0.85rem;
+    color: var(--muted-text-color, #c7c7c7);
+    margin-top: -0.2rem;
+    margin-bottom: 0.5rem;
+  }
+
   .translator-panel select,
   .translator-panel input,
   .translator-panel textarea {
@@ -162,7 +183,28 @@
 
         <div>
           <label for="apiKey">API key</label>
-          <input id="apiKey" class="text_pole" type="text" placeholder="Clave de API (opcional según proveedor)" />
+          <div class="input-with-button">
+            <input id="apiKey" class="text_pole" type="text" placeholder="Clave de API (opcional según proveedor)" />
+            <button id="apiKeyLoadButton" type="button" class="menu_button">Seleccionar clave</button>
+          </div>
+        </div>
+
+        <div class="checkbox-group">
+          <label class="checkbox-label">
+            <input id="useProfileProvider" type="checkbox" />
+            Usar proveedor y endpoint/API del perfil de conexión
+          </label>
+        </div>
+
+        <div class="hint-text">
+          Si está marcado, la configuración del proveedor y el endpoint/api se aplicará desde el perfil seleccionado. Si no, solo se podrá usar la clave guardada.
+        </div>
+
+        <div>
+          <label for="apiKeyProfileSelect">Perfil de conexión guardado</label>
+          <select id="apiKeyProfileSelect" class="text_pole">
+            <option value="">Seleccione un perfil de conexión</option>
+          </select>
         </div>
 
         <div>
