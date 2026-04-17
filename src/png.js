@@ -47,12 +47,34 @@ export function findPNGChunk(chunks, chunkType) {
   return chunks.find((chunk) => chunk.type === chunkType) || null;
 }
 
+export function findTextChunk(chunks, textKey) {
+  return chunks.find((chunk) => {
+    if (chunk.type !== 'tEXt') {
+      return false;
+    }
+
+    const raw = new TextDecoder('latin1').decode(chunk.dataBytes);
+    const [key] = raw.split('\x00', 1);
+    return key === textKey;
+  }) || null;
+}
+
 export function utf8ToString(bytes) {
   return new TextDecoder('utf-8').decode(bytes);
 }
 
 export function stringToUtf8(str) {
   return new TextEncoder().encode(str);
+}
+
+export function buildTextChunkBytes(key, value) {
+  const keyBytes = new TextEncoder().encode(key);
+  const valueBytes = new TextEncoder().encode(value);
+  const chunk = new Uint8Array(keyBytes.length + 1 + valueBytes.length);
+  chunk.set(keyBytes, 0);
+  chunk[keyBytes.length] = 0;
+  chunk.set(valueBytes, keyBytes.length + 1);
+  return chunk;
 }
 
 export function crc32(bytes) {
@@ -117,13 +139,27 @@ export async function translateCharacterCard(file, sourceLang = 'auto', targetLa
 
   const arrayBuffer = await file.arrayBuffer();
   const chunks = parsePNGChunks(arrayBuffer);
-  const charaChunk = findPNGChunk(chunks, 'chara');
+  let charaChunk = findPNGChunk(chunks, 'chara');
+  let textChunk = null;
+  let isTextChunk = false;
 
   if (!charaChunk) {
-    throw new Error('No se encontró el chunk chara en el PNG');
+    textChunk = findTextChunk(chunks, 'chara');
+    if (textChunk) {
+      charaChunk = textChunk;
+      isTextChunk = true;
+    }
   }
 
-  const base64Text = utf8ToString(charaChunk.dataBytes);
+  if (!charaChunk) {
+    throw new Error('No se encontró el chunk chara ni la entrada tEXt con clave chara en el PNG');
+  }
+
+  let base64Text = utf8ToString(charaChunk.dataBytes);
+  if (isTextChunk) {
+    const separatorIndex = base64Text.indexOf('\x00');
+    base64Text = separatorIndex >= 0 ? base64Text.slice(separatorIndex + 1) : base64Text;
+  }
   const jsonText = atob(base64Text);
   const metadata = JSON.parse(jsonText);
 
@@ -138,10 +174,16 @@ export async function translateCharacterCard(file, sourceLang = 'auto', targetLa
 
   const newPayload = JSON.stringify(metadata);
   const newBase64 = btoa(newPayload);
-  const newDataBytes = stringToUtf8(newBase64);
-  const updatedChunks = chunks.map((chunk) => (
-    chunk.type === 'chara' ? { ...chunk, dataBytes: newDataBytes } : chunk
-  ));
+  const newDataBytes = isTextChunk
+    ? buildTextChunkBytes('chara', newBase64)
+    : stringToUtf8(newBase64);
+
+  const updatedChunks = chunks.map((chunk) => {
+    if (chunk === charaChunk) {
+      return { ...chunk, dataBytes: newDataBytes, length: newDataBytes.length };
+    }
+    return chunk;
+  });
 
   const translatedArrayBuffer = buildPNG(updatedChunks);
   return new Blob([translatedArrayBuffer], { type: 'image/png' });
