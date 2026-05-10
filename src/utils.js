@@ -41,20 +41,30 @@ export function buildJsonHeaders(apiKey, extra = {}) {
   return headers;
 }
 
-export async function fetchJson(url, init = {}) {
+export async function fetchJson(url, init = {}, timeoutMs = 30000) {
   let response;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
     response = await fetch(url, {
       mode: 'cors',
       cache: 'no-cache',
       credentials: 'omit',
+      signal: controller.signal,
       ...init,
     });
   } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      console.error(`fetchJson timeout calling ${url} after ${timeoutMs}ms`);
+      throw new Error(`Timeout al llamar a ${url} después de ${timeoutMs}ms. Verifica la conectividad o aumenta el tiempo de espera.`);
+    }
     console.error(`fetchJson network error calling ${url}:`, error);
     throw new Error(`Error de red al llamar a ${url}: ${error.message}. Verifica el endpoint, la conectividad y posibles restricciones CORS.`);
   }
 
+  clearTimeout(timeoutId);
   const contentType = response.headers.get('content-type') || '';
   const bodyText = await response.text();
 
@@ -67,6 +77,17 @@ export async function fetchJson(url, init = {}) {
       // Use plain text message.
     }
     console.error(`fetchJson HTTP error calling ${url}: ${response.status} ${response.statusText}`, message);
+
+    if (response.status === 401) {
+      throw new Error(`Error de autenticación (401) al llamar a ${url}: Verifica la API key. ${message}`);
+    }
+    if (response.status === 429) {
+      throw new Error(`Límite de tasa excedido (429) al llamar a ${url}: Espera un momento antes de reintentar. ${message}`);
+    }
+    if (response.status >= 500) {
+      throw new Error(`Error del servidor (500+) al llamar a ${url}: El servicio puede estar caído. ${message}`);
+    }
+
     throw new Error(`Error en la llamada a ${url}: ${response.status} ${response.statusText} - ${message}`);
   }
 

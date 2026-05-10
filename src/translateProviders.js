@@ -80,12 +80,25 @@ async function translateWithOpenAI(text, sourceLang, targetLang, providerConfig)
     max_tokens: providerConfig.maxTokens || 1200,
   };
 
-  const result = await fetchJson(apiUrl, {
-    method: 'POST',
-    headers: buildJsonHeaders(apiKey),
-    body: JSON.stringify(body),
-  });
-  return parseOpenAIResponse(result);
+  try {
+    const result = await fetchJson(apiUrl, {
+      method: 'POST',
+      headers: buildJsonHeaders(apiKey),
+      body: JSON.stringify(body),
+    });
+    return parseOpenAIResponse(result);
+  } catch (error) {
+    if (error.message.includes('401')) {
+      throw new Error(`OpenAI: API key inválida o expirada. Verifica tu clave en el perfil o configuración.`);
+    }
+    if (error.message.includes('429')) {
+      throw new Error(`OpenAI: Límite de uso excedido. Espera o actualiza tu plan.`);
+    }
+    if (error.message.includes('model')) {
+      throw new Error(`OpenAI: Modelo '${model}' no disponible. Verifica el modelo seleccionado.`);
+    }
+    throw new Error(`Error con OpenAI: ${error.message}`);
+  }
 }
 
 async function translateWithKoboldCPP(text, sourceLang, targetLang, providerConfig) {
@@ -190,12 +203,25 @@ async function translateWithOpenRouter(text, sourceLang, targetLang, providerCon
     max_tokens: providerConfig.maxTokens || 1200,
   };
 
-  const result = await fetchJson(apiUrl, {
-    method: 'POST',
-    headers: buildJsonHeaders(providerConfig.apiKey),
-    body: JSON.stringify(body),
-  });
-  return parseOpenAIResponse(result);
+  try {
+    const result = await fetchJson(apiUrl, {
+      method: 'POST',
+      headers: buildJsonHeaders(providerConfig.apiKey),
+      body: JSON.stringify(body),
+    });
+    return parseOpenAIResponse(result);
+  } catch (error) {
+    if (error.message.includes('401')) {
+      throw new Error(`OpenRouter: API key inválida. Verifica tu clave.`);
+    }
+    if (error.message.includes('429')) {
+      throw new Error(`OpenRouter: Límite de uso excedido. Espera o verifica tu plan.`);
+    }
+    if (error.message.includes('model')) {
+      throw new Error(`OpenRouter: Modelo '${providerConfig.model || 'gpt-4'}' no disponible. Verifica el modelo.`);
+    }
+    throw new Error(`Error con OpenRouter: ${error.message}`);
+  }
 }
 
 async function translateWithElectronHub(text, sourceLang, targetLang, providerConfig) {
@@ -255,15 +281,28 @@ async function translateWithGoogleTranslate(text, sourceLang, targetLang, provid
     body.source = sourceLang;
   }
 
-  const result = await fetchJson(apiUrl, {
-    method: 'POST',
-    headers: buildJsonHeaders(),
-    body: JSON.stringify(body),
-  });
+  try {
+    const result = await fetchJson(apiUrl, {
+      method: 'POST',
+      headers: buildJsonHeaders(),
+      body: JSON.stringify(body),
+    });
 
-  if (!result?.data?.translations?.length || !result.data.translations[0].translatedText) {
-    throw new Error('Respuesta inválida de Google Translate');
+    if (!result?.data?.translations?.length || !result.data.translations[0].translatedText) {
+      throw new Error('Respuesta inválida de Google Translate');
+    }
+
+    return result.data.translations[0].translatedText.trim();
+  } catch (error) {
+    if (error.message.includes('401')) {
+      throw new Error(`Google Translate: API key inválida. Verifica tu clave.`);
+    }
+    if (error.message.includes('403')) {
+      throw new Error(`Google Translate: Acceso denegado. Verifica permisos o cuota.`);
+    }
+    if (error.message.includes('400')) {
+      throw new Error(`Google Translate: Solicitud inválida. Verifica idiomas o texto.`);
+    }
+    throw new Error(`Error con Google Translate: ${error.message}`);
   }
-
-  return result.data.translations[0].translatedText.trim();
 }

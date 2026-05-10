@@ -87,9 +87,7 @@ export function attachTranslatorSettingsEvents() {
   const modelInput = document.getElementById('modelInput');
   const apiUrlInput = document.getElementById('apiUrl');
   const apiKeyInput = document.getElementById('apiKey');
-  const apiKeyLoadButton = document.getElementById('apiKeyLoadButton');
-  const useProfileProviderCheckbox = document.getElementById('useProfileProvider');
-  const apiKeyProfileSelect = document.getElementById('apiKeyProfileSelect');
+  const refreshProfilesButton = document.getElementById('refreshProfilesButton');
   const progressBar = document.getElementById('translationProgress');
   const statusText = document.getElementById('statusText');
   const batchDelayInput = document.getElementById('batchDelay');
@@ -254,8 +252,20 @@ export function attachTranslatorSettingsEvents() {
 
   function handleTranslationError(error, fallbackMessage) {
     console.error('Traducción fallida:', error);
-    statusText.textContent = error?.message || fallbackMessage || 'Error desconocido durante la traducción.';
+    const message = error?.message || fallbackMessage || 'Error desconocido durante la traducción.';
+    statusText.textContent = message;
     updateProgress(0);
+
+    // Mostrar alerta para errores críticos
+    if (message.includes('API key inválida') || message.includes('autenticación') || message.includes('401')) {
+      alert(`Error de autenticación: ${message}`);
+    } else if (message.includes('Límite de') || message.includes('429')) {
+      alert(`Límite excedido: ${message}`);
+    } else if (message.includes('Timeout') || message.includes('red')) {
+      alert(`Error de conexión: ${message}`);
+    } else if (message.includes('servidor') || message.includes('500')) {
+      alert(`Error del servidor: ${message}`);
+    }
   }
 
   function setCharacterList(characters) {
@@ -383,12 +393,15 @@ export function attachTranslatorSettingsEvents() {
     profiles.forEach((profile, index) => {
       const option = document.createElement('option');
       option.value = String(index);
-      option.textContent = profile.name;
+      const providerInfo = profile.provider ? ` - ${profile.provider}` : '';
+      const modelInfo = profile.model ? ` (${profile.model})` : '';
+      option.textContent = `${profile.name}${providerInfo}${modelInfo}`;
       apiKeyProfileSelect.appendChild(option);
     });
 
     apiKeyProfileSelect.disabled = !profiles.length;
     apiKeyLoadButton.disabled = !profiles.length;
+    refreshProfilesButton.disabled = false; // Siempre habilitado para refrescar
   }
 
   function applyProfileProviderSettings(profile) {
@@ -453,6 +466,18 @@ export function attachTranslatorSettingsEvents() {
 
     if (useProfileProviderCheckbox.checked) {
       applyProfileProviderSettings(profile);
+    }
+  });
+
+  refreshProfilesButton.addEventListener('click', async () => {
+    statusText.textContent = 'Refrescando perfiles de conexión...';
+    try {
+      const profiles = await findSavedApiKeyProfiles();
+      populateApiKeyProfiles(profiles);
+      statusText.textContent = `Perfiles refrescados: ${profiles.length} encontrados.`;
+    } catch (error) {
+      console.error('Error refrescando perfiles:', error);
+      statusText.textContent = 'Error al refrescar perfiles.';
     }
   });
 
