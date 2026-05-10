@@ -150,6 +150,29 @@ export function attachTranslatorSettingsEvents() {
     return undefined;
   }
 
+  function updateProviderStatusMessage() {
+    const provider = providerSelect.value;
+    const endpoint = apiUrlInput.value.trim();
+    const defaultEndpoint = DEFAULT_ENDPOINTS[provider] || '';
+    const statusElement = document.getElementById('providerStatusText');
+    if (!statusElement) {
+      return;
+    }
+
+    if (!endpoint) {
+      statusElement.textContent = `Uso endpoint predeterminado para ${provider}: ${defaultEndpoint}`;
+      return;
+    }
+
+    const providerFromUrl = guessProviderFromUrl(endpoint);
+    if (providerFromUrl && providerFromUrl !== provider) {
+      statusElement.textContent = `Advertencia: el endpoint parece pertenecer a ${providerFromUrl}, pero el proveedor seleccionado es ${provider}.`; 
+      return;
+    }
+
+    statusElement.textContent = `Endpoint configurado para ${provider}.`;
+  }
+
   function updateModelSuggestionList(provider) {
     console.log('ST Translator: updating model suggestions for provider', provider);
     const suggestions = MODEL_SUGGESTIONS[provider] || [];
@@ -188,12 +211,13 @@ export function attachTranslatorSettingsEvents() {
           if (profile.apiKey) config.apiKey = profile.apiKey;
           if (profile.apiUrl) config.apiUrl = profile.apiUrl;
 
-          const resolvedProvider = normalizeProviderKey(profile.provider || profile.api) || guessProviderFromUrl(profile.apiUrl);
-          console.log('ST Translator: resolved provider from profile override', resolvedProvider);
+          const rawProvider = profile.provider || profile.api || profile.service || profile.type || profile.backend || profile.engine || profile.modelProvider || profile.providerType || profile.connectionType || profile.provider_name || profile.api_type;
+          const resolvedProvider = normalizeProviderKey(rawProvider) || guessProviderFromUrl(profile.apiUrl);
+          console.log('ST Translator: resolved provider from profile override', resolvedProvider, 'from rawProvider', rawProvider);
           if (resolvedProvider && Array.from(providerSelect.options).some((option) => option.value === resolvedProvider)) {
             config.provider = resolvedProvider;
           } else if (profile.provider) {
-            console.warn('ST Translator: profile provider not supported', profile.provider);
+            console.warn('ST Translator: profile provider not compatible', profile.provider);
           }
 
           if (profile.model) {
@@ -203,7 +227,7 @@ export function attachTranslatorSettingsEvents() {
       }
     }
 
-    console.debug('ST Translator: final provider config', config);
+    console.log('ST Translator: final provider config', config);
     return config;
   }
 
@@ -273,10 +297,10 @@ export function attachTranslatorSettingsEvents() {
 
     const apiKey = profile.apiKey || profile.key || profile.token || profile.accessToken || profile.secret || profile.secretKey || profile['secret-id'];
     const apiUrl = profile.apiUrl || profile.endpoint || profile.baseUrl || profile.url || profile.api_url || profile['api-url'];
-    const rawProvider = profile.provider || profile.api || profile.service || profile.type || profile.backend || profile.engine || profile.modelProvider;
+    const rawProvider = profile.provider || profile.api || profile.service || profile.type || profile.backend || profile.engine || profile.modelProvider || profile.providerType || profile.connectionType || profile.provider_name || profile.api_type;
     const provider = normalizeProviderKey(rawProvider) || guessProviderFromUrl(apiUrl) || rawProvider;
-    const model = profile.model || profile.modelName || profile.model_id || profile.modelId || profile.defaultModel;
-    const name = profile.name || profile.label || profile.title || profile.id || profile.uuid || 'Perfil desconocido';
+    const model = profile.model || profile.modelName || profile.model_id || profile.modelId || profile.defaultModel || profile.default_model;
+    const name = profile.name || profile.label || profile.title || profile.id || profile.uuid || profile.nameLabel || 'Perfil desconocido';
 
     if (!apiKey && !apiUrl && !provider) {
       return null;
@@ -293,6 +317,9 @@ export function attachTranslatorSettingsEvents() {
       console.log('ST Translator: found profiles from SillyTavern context', contextProfiles);
     }
     const sources = [
+      window.SillyTavern?.connectionManager?.profiles,
+      window.SillyTavern?.connectionManager?.getProfiles,
+      window.SillyTavern?.getConnectionManager?.()?.profiles,
       window.SillyTavern?.getConnectionProfiles,
       window.SillyTavern?.getConnections,
       window.SillyTavern?.connectionProfiles,
@@ -384,6 +411,7 @@ export function attachTranslatorSettingsEvents() {
     const profileIndex = apiKeyProfileSelect.value;
     console.log('ST Translator: profile selection changed', profileIndex);
     if (!profileIndex) {
+      updateProviderStatusMessage();
       return;
     }
 
@@ -402,6 +430,7 @@ export function attachTranslatorSettingsEvents() {
     }
 
     updateModelSuggestionList(providerSelect.value);
+    updateProviderStatusMessage();
   }
 
   apiKeyProfileSelect.addEventListener('change', applyProfileSelection);
@@ -444,12 +473,16 @@ export function attachTranslatorSettingsEvents() {
     console.log('ST Translator: provider selection changed from', lastProviderSelection, 'to', newProvider);
     updateApiSettingsForProvider(newProvider, lastProviderSelection);
     updateModelSuggestionList(newProvider);
+    updateProviderStatusMessage();
     lastProviderSelection = newProvider;
     console.log('Proveedor seleccionado:', newProvider, 'URL actual:', apiUrlInput.value);
   });
 
+  apiUrlInput.addEventListener('input', updateProviderStatusMessage);
+
   updateApiSettingsForProvider(providerSelect.value);
   updateModelSuggestionList(providerSelect.value);
+  updateProviderStatusMessage();
 
   let translatorSelectedFile = null;
 
@@ -524,7 +557,7 @@ export function attachTranslatorSettingsEvents() {
 
   translateLorebookButton.addEventListener('click', async () => {
     updateProgress(5, 'Iniciando traducción de lorebook...');
-    const currentLorebook = window.getCurrentLorebook?.();
+    const currentLorebook = window.getCurrentLorebook?.() || window.SillyTavern?.getCurrentLorebook?.();
 
     if (!currentLorebook) {
       statusText.textContent = 'No se encontró el lorebook actual en el entorno.';
