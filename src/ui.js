@@ -119,10 +119,11 @@ export function attachTranslatorSettingsEvents() {
     }
 
     const normalized = value.toLowerCase().trim();
+    if (normalized === 'oai') return 'openai';
     if (normalized.includes('openai')) return 'openai';
     if (normalized.includes('openrouter')) return 'openrouter';
     if (normalized.includes('ollama')) return 'ollama';
-    if (normalized.includes('kobold')) return 'local_koboldcpp';
+    if (normalized.includes('kcpp') || normalized.includes('kobold')) return 'local_koboldcpp';
     if (normalized.includes('llama.cpp') || normalized.includes('llama_cpp') || normalized.includes('llama cpp')) return 'llama_cpp';
     if (normalized.includes('llm studio') || normalized.includes('llm_studio')) return 'llm_studio';
     if (normalized.includes('electron hub') || normalized.includes('electron_hub')) return 'electron_hub';
@@ -183,20 +184,15 @@ export function attachTranslatorSettingsEvents() {
         if (profile) {
           if (profile.apiKey) config.apiKey = profile.apiKey;
           if (profile.apiUrl) config.apiUrl = profile.apiUrl;
-          if (profile.provider) {
-            const normalized = normalizeProviderKey(profile.provider) || guessProviderFromUrl(profile.apiUrl);
-            if (normalized) {
-              config.provider = normalized;
-            } else {
-              config.provider = profile.provider;
-            }
-          } else if (profile.apiUrl) {
-            const guessed = guessProviderFromUrl(profile.apiUrl);
-            if (guessed) {
-              config.provider = guessed;
-            }
+
+          const resolvedProvider = normalizeProviderKey(profile.provider || profile.api) || guessProviderFromUrl(profile.apiUrl);
+          if (resolvedProvider && Array.from(providerSelect.options).some((option) => option.value === resolvedProvider)) {
+            config.provider = resolvedProvider;
           }
-          if (profile.model) config.model = profile.model;
+
+          if (profile.model) {
+            config.model = profile.model;
+          }
         }
       }
     }
@@ -263,11 +259,11 @@ export function attachTranslatorSettingsEvents() {
       return null;
     }
 
-    const apiKey = profile.apiKey || profile.key || profile.token || profile.accessToken || profile.secret || profile.secretKey;
-    const apiUrl = profile.apiUrl || profile.endpoint || profile.baseUrl || profile.url || profile.api_url;
-    const rawProvider = profile.provider || profile.service || profile.type || profile.backend || profile.engine || profile.modelProvider;
+    const apiKey = profile.apiKey || profile.key || profile.token || profile.accessToken || profile.secret || profile.secretKey || profile['secret-id'];
+    const apiUrl = profile.apiUrl || profile.endpoint || profile.baseUrl || profile.url || profile.api_url || profile['api-url'];
+    const rawProvider = profile.provider || profile.api || profile.service || profile.type || profile.backend || profile.engine || profile.modelProvider;
     const provider = normalizeProviderKey(rawProvider) || guessProviderFromUrl(apiUrl) || rawProvider;
-    const model = profile.model || profile.modelName || profile.model_id || profile.modelId;
+    const model = profile.model || profile.modelName || profile.model_id || profile.modelId || profile.defaultModel;
     const name = profile.name || profile.label || profile.title || profile.id || profile.uuid || 'Perfil desconocido';
 
     if (!apiKey && !apiUrl && !provider) {
@@ -279,6 +275,7 @@ export function attachTranslatorSettingsEvents() {
 
   async function findSavedApiKeyProfiles() {
     const candidates = [];
+    const contextProfiles = window.SillyTavern?.getContext?.()?.extensionSettings?.connectionManager?.profiles;
     const sources = [
       window.SillyTavern?.getConnectionProfiles,
       window.SillyTavern?.getConnections,
@@ -289,6 +286,9 @@ export function attachTranslatorSettingsEvents() {
       window.connectionProfiles,
       window.connections,
     ];
+    if (Array.isArray(contextProfiles)) {
+      candidates.push(...contextProfiles);
+    }
 
     for (const source of sources) {
       try {
@@ -341,7 +341,7 @@ export function attachTranslatorSettingsEvents() {
   }
 
   function applyProfileProviderSettings(profile) {
-    const normalizedProvider = normalizeProviderKey(profile.provider) || guessProviderFromUrl(profile.apiUrl);
+    const normalizedProvider = normalizeProviderKey(profile.provider || profile.api) || guessProviderFromUrl(profile.apiUrl);
     if (normalizedProvider && Array.from(providerSelect.options).some((option) => option.value === normalizedProvider)) {
       providerSelect.value = normalizedProvider;
     }
