@@ -113,6 +113,41 @@ export function attachTranslatorSettingsEvents() {
     google_translate: [],
   };
 
+  function normalizeProviderKey(value) {
+    if (!value || typeof value !== 'string') {
+      return undefined;
+    }
+
+    const normalized = value.toLowerCase().trim();
+    if (normalized.includes('openai')) return 'openai';
+    if (normalized.includes('openrouter')) return 'openrouter';
+    if (normalized.includes('ollama')) return 'ollama';
+    if (normalized.includes('kobold')) return 'local_koboldcpp';
+    if (normalized.includes('llama.cpp') || normalized.includes('llama_cpp') || normalized.includes('llama cpp')) return 'llama_cpp';
+    if (normalized.includes('llm studio') || normalized.includes('llm_studio')) return 'llm_studio';
+    if (normalized.includes('electron hub') || normalized.includes('electron_hub')) return 'electron_hub';
+    if (normalized.includes('google ai') || normalized.includes('google_aistudio')) return 'google_aistudio';
+    if (normalized.includes('google translate') || normalized.includes('translate.googleapis.com')) return 'google_translate';
+    return undefined;
+  }
+
+  function guessProviderFromUrl(url) {
+    if (!url || typeof url !== 'string') {
+      return undefined;
+    }
+
+    const normalized = url.toLowerCase();
+    if (normalized.includes('openai.com/v1')) return 'openai';
+    if (normalized.includes('openrouter.ai')) return 'openrouter';
+    if (normalized.includes('127.0.0.1:11434') || normalized.includes('/api.completions') || normalized.includes('/api/completions')) return 'ollama';
+    if (normalized.includes('127.0.0.1:8080/v1/completions') || normalized.includes('llama_cpp')) return 'llama_cpp';
+    if (normalized.includes('127.0.0.1:5000/api/v1/generate') || normalized.includes('kobold')) return 'local_koboldcpp';
+    if (normalized.includes('generativelanguage.googleapis.com')) return 'google_aistudio';
+    if (normalized.includes('translation.googleapis.com')) return 'google_translate';
+    if (normalized.includes('127.0.0.1:8080/api/v1/generate')) return 'llm_studio';
+    return undefined;
+  }
+
   function updateModelSuggestionList(provider) {
     const suggestions = MODEL_SUGGESTIONS[provider] || [];
     const listElement = document.getElementById('modelSuggestions');
@@ -148,7 +183,19 @@ export function attachTranslatorSettingsEvents() {
         if (profile) {
           if (profile.apiKey) config.apiKey = profile.apiKey;
           if (profile.apiUrl) config.apiUrl = profile.apiUrl;
-          if (profile.provider) config.provider = profile.provider;
+          if (profile.provider) {
+            const normalized = normalizeProviderKey(profile.provider) || guessProviderFromUrl(profile.apiUrl);
+            if (normalized) {
+              config.provider = normalized;
+            } else {
+              config.provider = profile.provider;
+            }
+          } else if (profile.apiUrl) {
+            const guessed = guessProviderFromUrl(profile.apiUrl);
+            if (guessed) {
+              config.provider = guessed;
+            }
+          }
           if (profile.model) config.model = profile.model;
         }
       }
@@ -218,7 +265,8 @@ export function attachTranslatorSettingsEvents() {
 
     const apiKey = profile.apiKey || profile.key || profile.token || profile.accessToken || profile.secret || profile.secretKey;
     const apiUrl = profile.apiUrl || profile.endpoint || profile.baseUrl || profile.url || profile.api_url;
-    const provider = profile.provider || profile.service || profile.type || profile.backend || profile.engine || profile.modelProvider;
+    const rawProvider = profile.provider || profile.service || profile.type || profile.backend || profile.engine || profile.modelProvider;
+    const provider = normalizeProviderKey(rawProvider) || guessProviderFromUrl(apiUrl) || rawProvider;
     const model = profile.model || profile.modelName || profile.model_id || profile.modelId;
     const name = profile.name || profile.label || profile.title || profile.id || profile.uuid || 'Perfil desconocido';
 
@@ -293,8 +341,9 @@ export function attachTranslatorSettingsEvents() {
   }
 
   function applyProfileProviderSettings(profile) {
-    if (profile.provider && Array.from(providerSelect.options).some((option) => option.value === profile.provider)) {
-      providerSelect.value = profile.provider;
+    const normalizedProvider = normalizeProviderKey(profile.provider) || guessProviderFromUrl(profile.apiUrl);
+    if (normalizedProvider && Array.from(providerSelect.options).some((option) => option.value === normalizedProvider)) {
+      providerSelect.value = normalizedProvider;
     }
     if (profile.apiUrl) {
       apiUrlInput.value = profile.apiUrl;

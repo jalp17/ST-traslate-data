@@ -71,14 +71,18 @@
   }
 
   .translator-panel .menu_button {
-    width: 100%;
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
-    margin-top: 0.25rem;
+    width: 100%;
+    min-height: 2.8rem;
+    padding: 0.75rem 1rem;
     background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.75rem;
     color: var(--text-color, #e6e6e6);
     cursor: pointer;
-    transition: background 0.2s ease, transform 0.1s ease;
+    transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
   }
 
   .translator-panel .menu_button:hover {
@@ -161,8 +165,11 @@
   }
 
   .translator-panel .menu_button {
-    width: 100%;
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
+    width: 100%;
+    min-height: 2.8rem;
     padding: 0.75rem 1rem;
     border-radius: 0.75rem;
     border: 1px solid rgba(255, 255, 255, 0.12);
