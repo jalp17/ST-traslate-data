@@ -247,6 +247,7 @@
           <div>
             <label for="modelInput">Modelo</label>
             <input id="modelInput" class="text_pole" type="text" placeholder="Ej: gpt-3.5-turbo, gpt-4, llama2" list="modelSuggestions" />
+            <select id="modelSelect" class="text_pole"></select>
             <datalist id="modelSuggestions">
               <option value="gpt-3.5-turbo"></option>
               <option value="gpt-4"></option>
@@ -262,6 +263,7 @@
             <label for="apiUrl">URL/API endpoint</label>
             <input id="apiUrl" class="text_pole" type="text" placeholder="https://api.openai.com/v1/..." />
             <div id="providerStatusText" class="hint-text">El proveedor seleccionado determinará el endpoint predeterminado.</div>
+            <div id="statusDetailsText" class="hint-text">Estado de conexión y fuente de credenciales aparecerán aquí.</div>
           </div>
         </div>
       </div>
@@ -269,6 +271,15 @@
       <div class="section-card">
         <div class="section-title">Credenciales y perfil</div>
         <div class="form-grid">
+          <div class="full-width">
+            <label for="connectionModeSelect">Modo de configuración</label>
+            <select id="connectionModeSelect" class="text_pole">
+              <option value="manual" selected>Configuración manual</option>
+              <option value="saved_profile">Usar perfil guardado</option>
+              <option value="st_global">Usar configuración ST global</option>
+            </select>
+          </div>
+
           <div class="full-width">
             <label for="apiKey">API key</label>
             <div class="input-with-button">

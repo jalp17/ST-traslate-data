@@ -85,14 +85,20 @@ export function attachTranslatorSettingsEvents() {
   const targetLangSelect = document.getElementById('targetLang');
   const providerSelect = document.getElementById('providerSelect');
   const modelInput = document.getElementById('modelInput');
+  const modelSelect = document.getElementById('modelSelect');
   const apiUrlInput = document.getElementById('apiUrl');
   const apiKeyInput = document.getElementById('apiKey');
+  const apiKeyLoadButton = document.getElementById('apiKeyLoadButton');
   const refreshProfilesButton = document.getElementById('refreshProfilesButton');
+  const connectionModeSelect = document.getElementById('connectionModeSelect');
+  const useProfileProviderCheckbox = document.getElementById('useProfileProvider');
+  const apiKeyProfileSelect = document.getElementById('apiKeyProfileSelect');
+  const statusDetailsText = document.getElementById('statusDetailsText');
   const progressBar = document.getElementById('translationProgress');
   const statusText = document.getElementById('statusText');
   const batchDelayInput = document.getElementById('batchDelay');
 
-  if (!pngInput || !translatePngButton || !translateImageBatchButton || !translateLorebookButton || !translateSelectedCharactersButton || !refreshCharacterListButton || !characterBatchSelect || !sourceLangSelect || !targetLangSelect || !providerSelect || !modelInput || !apiUrlInput || !apiKeyInput || !apiKeyLoadButton || !useProfileProviderCheckbox || !apiKeyProfileSelect || !progressBar || !statusText || !batchDelayInput) {
+  if (!pngInput || !translatePngButton || !translateImageBatchButton || !translateLorebookButton || !translateSelectedCharactersButton || !refreshCharacterListButton || !characterBatchSelect || !sourceLangSelect || !targetLangSelect || !providerSelect || !modelInput || !modelSelect || !apiUrlInput || !apiKeyInput || !apiKeyLoadButton || !refreshProfilesButton || !connectionModeSelect || !useProfileProviderCheckbox || !apiKeyProfileSelect || !statusDetailsText || !progressBar || !statusText || !batchDelayInput) {
     return;
   }
 
@@ -175,16 +181,30 @@ export function attachTranslatorSettingsEvents() {
     console.log('ST Translator: updating model suggestions for provider', provider);
     const suggestions = MODEL_SUGGESTIONS[provider] || [];
     const listElement = document.getElementById('modelSuggestions');
-    if (!listElement) {
-      return;
+    const selectElement = document.getElementById('modelSelect');
+    if (listElement) {
+      listElement.innerHTML = '';
+      suggestions.forEach((model) => {
+        const option = document.createElement('option');
+        option.value = model;
+        listElement.appendChild(option);
+      });
     }
 
-    listElement.innerHTML = '';
-    suggestions.forEach((model) => {
-      const option = document.createElement('option');
-      option.value = model;
-      listElement.appendChild(option);
-    });
+    if (selectElement) {
+      selectElement.innerHTML = '';
+      const defaultOption = document.createElement('option');
+      defaultOption.value = '';
+      defaultOption.textContent = 'Selecciona un modelo...';
+      selectElement.appendChild(defaultOption);
+      suggestions.forEach((model) => {
+        const option = document.createElement('option');
+        option.value = model;
+        option.textContent = model;
+        selectElement.appendChild(option);
+      });
+      selectElement.disabled = suggestions.length === 0;
+    }
 
     if (!modelInput.value.trim()) {
       modelInput.placeholder = suggestions.length ? `Ej: ${suggestions[0]}` : 'Escriba el modelo';
@@ -201,7 +221,19 @@ export function attachTranslatorSettingsEvents() {
     };
     console.log('ST Translator: initial provider config', config);
 
-    if (useProfileProviderCheckbox.checked) {
+    const mode = connectionModeSelect.value;
+    if (mode === 'st_global') {
+      const inferred = getInferredSTProfile();
+      if (inferred) {
+        console.log('ST Translator: using inferred ST profile', inferred);
+        if (inferred.apiKey) config.apiKey = inferred.apiKey;
+        if (inferred.apiUrl) config.apiUrl = inferred.apiUrl;
+        if (inferred.provider) config.provider = inferred.provider;
+        if (inferred.model) config.model = inferred.model;
+      }
+    }
+
+    if (mode === 'saved_profile' || useProfileProviderCheckbox.checked) {
       const profileIndex = apiKeyProfileSelect.value;
       if (profileIndex) {
         const profile = savedConnectionProfiles[Number(profileIndex)];
@@ -319,6 +351,87 @@ export function attachTranslatorSettingsEvents() {
     return { name, apiKey, apiUrl, provider, model };
   }
 
+  function getInferredSTProfile() {
+    const candidates = [
+      window.SillyTavern?.connectionManager?.activeProfile,
+      window.SillyTavern?.connectionManager?.selectedProfile,
+      window.SillyTavern?.connectionManager?.currentProfile,
+      window.SillyTavern?.connectionManager?.profile,
+      window.SillyTavern?.connectionManager?.connection,
+      window.SillyTavern?.connectionManager?.currentConnection,
+      window.SillyTavern?.getConnectionManager?.()?.activeProfile,
+      window.SillyTavern?.getConnectionManager?.()?.selectedProfile,
+      window.SillyTavern?.getConnectionManager?.()?.currentProfile,
+      window.SillyTavern?.getContext?.()?.extensionSettings?.connectionManager?.activeProfile,
+      window.SillyTavern?.getContext?.()?.extensionSettings?.connectionManager?.selectedProfile,
+      window.SillyTavern?.getContext?.()?.extensionSettings?.connectionManager?.currentProfile,
+      window.SillyTavern?.getContext?.()?.connectionManager?.activeProfile,
+      window.SillyTavern?.getContext?.()?.connectionManager?.selectedProfile,
+      window.SillyTavern?.getContext?.()?.connectionManager?.currentProfile,
+      window.SillyTavern?.getContext?.()?.connectionManager?.profiles,
+      window.SillyTavern?.connectionManager?.profiles,
+    ];
+
+    for (const candidate of candidates) {
+      if (!candidate) continue;
+      if (Array.isArray(candidate) && candidate.length) {
+        const profile = normalizeProfile(candidate[0]);
+        if (profile) {
+          return profile;
+        }
+      }
+      if (typeof candidate === 'object') {
+        const profile = normalizeProfile(candidate);
+        if (profile) {
+          return profile;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  function updateStatusDetails() {
+    const mode = connectionModeSelect.value;
+    const provider = providerSelect.value;
+    const endpoint = apiUrlInput.value.trim() || DEFAULT_ENDPOINTS[provider] || 'sin endpoint';
+    const manualKey = apiKeyInput.value.trim() ? 'campo manual' : 'no disponible';
+    const selectedProfile = savedConnectionProfiles[Number(apiKeyProfileSelect.value)];
+    const inferredProfile = getInferredSTProfile();
+
+    let sourceText = `Modo: ${mode === 'manual' ? 'Manual' : mode === 'saved_profile' ? 'Perfil guardado' : 'Configuración ST global'}. `;
+
+    if (mode === 'saved_profile') {
+      if (selectedProfile) {
+        sourceText += `Perfil seleccionado: ${selectedProfile.name}. `;
+      } else {
+        sourceText += 'No se ha seleccionado perfil. ';
+      }
+    }
+
+    if (mode === 'st_global') {
+      if (inferredProfile) {
+        sourceText += `Perfil ST detectado: ${inferredProfile.name}. `;
+      } else {
+        sourceText += 'No se detectó perfil ST. ';
+      }
+    }
+
+    const keySource = mode === 'saved_profile' && selectedProfile?.apiKey
+      ? 'perfil guardado'
+      : mode === 'st_global' && inferredProfile?.apiKey
+        ? 'configuración ST global'
+        : manualKey;
+
+    const providerSource = mode === 'saved_profile' && selectedProfile?.provider
+      ? selectedProfile.provider
+      : mode === 'st_global' && inferredProfile?.provider
+        ? inferredProfile.provider
+        : provider;
+
+    statusDetailsText.textContent = `${sourceText}Proveedor usado: ${providerSource}. API key: ${keySource}. Endpoint: ${endpoint}.`;
+  }
+
   async function findSavedApiKeyProfiles() {
     console.log('ST Translator: finding saved API key profiles');
     const candidates = [];
@@ -420,6 +533,25 @@ export function attachTranslatorSettingsEvents() {
     updateModelSuggestionList(providerSelect.value);
   }
 
+  function updateConnectionModeUI() {
+    const mode = connectionModeSelect.value;
+    const useProfileMode = mode === 'saved_profile';
+    const useGlobalMode = mode === 'st_global';
+
+    apiKeyProfileSelect.disabled = !useProfileMode;
+    refreshProfilesButton.disabled = !useProfileMode;
+    apiKeyLoadButton.disabled = !useProfileMode;
+    useProfileProviderCheckbox.disabled = !(mode === 'manual' || useProfileMode);
+
+    if (useGlobalMode) {
+      providerSelect.disabled = false;
+      apiUrlInput.disabled = false;
+      modelInput.disabled = false;
+    }
+
+    updateStatusDetails();
+  }
+
   function applyProfileSelection() {
     const profileIndex = apiKeyProfileSelect.value;
     console.log('ST Translator: profile selection changed', profileIndex);
@@ -447,7 +579,21 @@ export function attachTranslatorSettingsEvents() {
   }
 
   apiKeyProfileSelect.addEventListener('change', applyProfileSelection);
+  connectionModeSelect.addEventListener('change', () => {
+    updateConnectionModeUI();
+    if (connectionModeSelect.value === 'saved_profile') {
+      applyProfileSelection();
+    } else {
+      updateStatusDetails();
+    }
+  });
   useProfileProviderCheckbox.addEventListener('change', applyProfileSelection);
+  modelSelect.addEventListener('change', () => {
+    if (modelSelect.value) {
+      modelInput.value = modelSelect.value;
+    }
+    updateStatusDetails();
+  });
   apiKeyLoadButton.addEventListener('click', () => {
     const profileIndex = apiKeyProfileSelect.value;
     if (!profileIndex) {
@@ -499,15 +645,21 @@ export function attachTranslatorSettingsEvents() {
     updateApiSettingsForProvider(newProvider, lastProviderSelection);
     updateModelSuggestionList(newProvider);
     updateProviderStatusMessage();
+    updateStatusDetails();
     lastProviderSelection = newProvider;
     console.log('Proveedor seleccionado:', newProvider, 'URL actual:', apiUrlInput.value);
   });
 
-  apiUrlInput.addEventListener('input', updateProviderStatusMessage);
+  apiUrlInput.addEventListener('input', () => {
+    updateProviderStatusMessage();
+    updateStatusDetails();
+  });
 
   updateApiSettingsForProvider(providerSelect.value);
   updateModelSuggestionList(providerSelect.value);
   updateProviderStatusMessage();
+  updateConnectionModeUI();
+  updateStatusDetails();
 
   let translatorSelectedFile = null;
 
