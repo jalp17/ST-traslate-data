@@ -151,7 +151,7 @@ export function attachTranslatorSettingsEvents() {
   }
 
   function updateModelSuggestionList(provider) {
-    console.debug('ST Translator: updating model suggestions for provider', provider);
+    console.log('ST Translator: updating model suggestions for provider', provider);
     const suggestions = MODEL_SUGGESTIONS[provider] || [];
     const listElement = document.getElementById('modelSuggestions');
     if (!listElement) {
@@ -178,7 +178,7 @@ export function attachTranslatorSettingsEvents() {
       apiUrl: apiUrlInput.value.trim() || undefined,
       model: modelInput.value.trim() || undefined,
     };
-    console.debug('ST Translator: initial provider config', config);
+    console.log('ST Translator: initial provider config', config);
 
     if (useProfileProviderCheckbox.checked) {
       const profileIndex = apiKeyProfileSelect.value;
@@ -189,7 +189,7 @@ export function attachTranslatorSettingsEvents() {
           if (profile.apiUrl) config.apiUrl = profile.apiUrl;
 
           const resolvedProvider = normalizeProviderKey(profile.provider || profile.api) || guessProviderFromUrl(profile.apiUrl);
-          console.debug('ST Translator: resolved provider from profile override', resolvedProvider);
+          console.log('ST Translator: resolved provider from profile override', resolvedProvider);
           if (resolvedProvider && Array.from(providerSelect.options).some((option) => option.value === resolvedProvider)) {
             config.provider = resolvedProvider;
           } else if (profile.provider) {
@@ -208,13 +208,17 @@ export function attachTranslatorSettingsEvents() {
   }
 
   function validateProviderConfig(config) {
-    console.debug('ST Translator: validating provider config', config);
+    console.log('ST Translator: validating provider config', config);
     if (!config.provider) {
       throw new Error('Debe seleccionar un proveedor de traducción.');
     }
 
     if (config.provider === 'openai' && !config.apiKey) {
       throw new Error('OpenAI requiere una API key válida en el campo correspondiente o desde el perfil de conexión.');
+    }
+
+    if (config.provider === 'openrouter' && config.apiUrl?.includes('api.openai.com')) {
+      throw new Error('Proveedor OpenRouter no puede usar el endpoint de OpenAI. Cambie el endpoint o seleccione el proveedor OpenAI.');
     }
 
     if (config.provider === 'google_translate' && !config.apiKey && !config.apiUrl) {
@@ -282,11 +286,11 @@ export function attachTranslatorSettingsEvents() {
   }
 
   async function findSavedApiKeyProfiles() {
-    console.debug('ST Translator: finding saved API key profiles');
+    console.log('ST Translator: finding saved API key profiles');
     const candidates = [];
     const contextProfiles = window.SillyTavern?.getContext?.()?.extensionSettings?.connectionManager?.profiles;
     if (Array.isArray(contextProfiles)) {
-      console.debug('ST Translator: found profiles from SillyTavern context', contextProfiles);
+      console.log('ST Translator: found profiles from SillyTavern context', contextProfiles);
     }
     const sources = [
       window.SillyTavern?.getConnectionProfiles,
@@ -305,7 +309,7 @@ export function attachTranslatorSettingsEvents() {
     for (const source of sources) {
       try {
         let value;
-        console.debug('ST Translator: checking profile source', source);
+        console.log('ST Translator: checking profile source', source);
         if (typeof source === 'function') {
           const boundSource = source.bind(window.SillyTavern || window);
           value = await boundSource();
@@ -314,10 +318,10 @@ export function attachTranslatorSettingsEvents() {
         }
 
         if (!value) {
-          console.debug('ST Translator: profile source returned empty', source);
+          console.log('ST Translator: profile source returned empty', source);
           continue;
         }
-        console.debug('ST Translator: profile source value type', typeof value, value);
+        console.log('ST Translator: profile source value type', typeof value, value);
         if (Array.isArray(value)) {
           candidates.push(...value);
           continue;
@@ -334,12 +338,12 @@ export function attachTranslatorSettingsEvents() {
     const normalizedProfiles = candidates
       .map(normalizeProfile)
       .filter((profile) => profile && (profile.apiKey || profile.apiUrl));
-    console.debug('ST Translator: normalized saved profiles', normalizedProfiles);
+    console.log('ST Translator: normalized saved profiles', normalizedProfiles);
     return normalizedProfiles;
   }
 
   function populateApiKeyProfiles(profiles) {
-    console.debug('ST Translator: populating profile dropdown', profiles);
+    console.log('ST Translator: populating profile dropdown', profiles);
     savedConnectionProfiles = profiles;
     apiKeyProfileSelect.innerHTML = '';
     const defaultOption = document.createElement('option');
@@ -361,9 +365,9 @@ export function attachTranslatorSettingsEvents() {
   }
 
   function applyProfileProviderSettings(profile) {
-    console.debug('ST Translator: applying profile settings', profile);
+    console.log('ST Translator: applying profile settings', profile);
     const normalizedProvider = normalizeProviderKey(profile.provider || profile.api) || guessProviderFromUrl(profile.apiUrl);
-    console.debug('ST Translator: normalized provider from profile', normalizedProvider);
+    console.log('ST Translator: normalized provider from profile', normalizedProvider);
     if (normalizedProvider && Array.from(providerSelect.options).some((option) => option.value === normalizedProvider)) {
       providerSelect.value = normalizedProvider;
     }
@@ -378,13 +382,13 @@ export function attachTranslatorSettingsEvents() {
 
   function applyProfileSelection() {
     const profileIndex = apiKeyProfileSelect.value;
-    console.debug('ST Translator: profile selection changed', profileIndex);
+    console.log('ST Translator: profile selection changed', profileIndex);
     if (!profileIndex) {
       return;
     }
 
     const profile = savedConnectionProfiles[Number(profileIndex)];
-    console.debug('ST Translator: selected saved profile', profile);
+    console.log('ST Translator: selected saved profile', profile);
     if (!profile) {
       return;
     }
@@ -423,18 +427,25 @@ export function attachTranslatorSettingsEvents() {
     }
   });
 
-  function updateApiSettingsForProvider(provider) {
+  let lastProviderSelection = providerSelect.value;
+
+  function updateApiSettingsForProvider(provider, previousProvider) {
     const defaultUrl = DEFAULT_ENDPOINTS[provider] || '';
+    const currentUrl = apiUrlInput.value.trim();
     apiUrlInput.placeholder = defaultUrl;
-    if (!apiUrlInput.value.trim()) {
+
+    if (!currentUrl || currentUrl === DEFAULT_ENDPOINTS[previousProvider]) {
       apiUrlInput.value = defaultUrl;
     }
   }
 
   providerSelect.addEventListener('change', () => {
-      console.debug('ST Translator: provider selection changed', providerSelect.value);
-    updateModelSuggestionList(providerSelect.value);
-    console.log('Proveedor seleccionado:', providerSelect.value);
+    const newProvider = providerSelect.value;
+    console.log('ST Translator: provider selection changed from', lastProviderSelection, 'to', newProvider);
+    updateApiSettingsForProvider(newProvider, lastProviderSelection);
+    updateModelSuggestionList(newProvider);
+    lastProviderSelection = newProvider;
+    console.log('Proveedor seleccionado:', newProvider, 'URL actual:', apiUrlInput.value);
   });
 
   updateApiSettingsForProvider(providerSelect.value);
@@ -460,7 +471,7 @@ export function attachTranslatorSettingsEvents() {
 
     try {
       const providerConfig = validateProviderConfig(buildProviderConfig());
-      console.debug('ST Translator: starting PNG translation', providerConfig);
+      console.log('ST Translator: starting PNG translation', providerConfig);
       console.log('Iniciando traducción de PNG con configuración:', providerConfig);
       const translatedBlob = await window.STUniversalTranslator.translateCharacterCard(
         translatorSelectedFile,
@@ -492,7 +503,7 @@ export function attachTranslatorSettingsEvents() {
 
     try {
       const providerConfig = validateProviderConfig(buildProviderConfig());
-      console.debug('ST Translator: starting image batch translation', providerConfig);
+      console.log('ST Translator: starting image batch translation', providerConfig);
       console.log('Iniciando traducción de lote de imágenes con configuración:', providerConfig);
       const results = await window.STUniversalTranslator.translateImageBatch(
         files,
@@ -523,7 +534,7 @@ export function attachTranslatorSettingsEvents() {
 
     try {
       const providerConfig = validateProviderConfig(buildProviderConfig());
-      console.debug('ST Translator: starting lorebook translation', providerConfig);
+      console.log('ST Translator: starting lorebook translation', providerConfig);
       console.log('Iniciando traducción de lorebook con configuración:', providerConfig);
       const translatedLorebook = await window.STUniversalTranslator.translateLorebook(
         currentLorebook,
@@ -564,7 +575,7 @@ export function attachTranslatorSettingsEvents() {
 
     try {
       const providerConfig = validateProviderConfig(buildProviderConfig());
-      console.debug('ST Translator: starting character translation', providerConfig);
+      console.log('ST Translator: starting character translation', providerConfig);
       console.log('Iniciando traducción de personajes con configuración:', providerConfig);
       const translatedCharacters = await window.STUniversalTranslator.translateCharacters(
         selectedItems,
